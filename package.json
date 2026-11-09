@@ -1,0 +1,10 @@
+{
+  "name": "sourcelens-contracts",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit --strict backend/contracts/api.ts",
+    "check:frontend": "node --check extension/background.js && node --check extension/content.js && node --check extension/popup.js && node --check landing/app.js",
+    "build": "npm run typecheck && npm run check:frontend"
+  },
+  "devDependencies": { "typescript": "5.9.3" }
+}

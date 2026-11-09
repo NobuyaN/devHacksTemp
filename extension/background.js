@@ -62,7 +62,7 @@ async function checkClaim(message) {
   if (!base) return demoResult(claim);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 55000);
   try {
     const response = await fetch(`${base}/check`, {
       method: "POST",
@@ -88,6 +88,7 @@ async function checkClaim(message) {
         try { return s && new URL(s.url).protocol === "https:" && typeof s.title === "string"; }
         catch (_) { return false; }
       }).map(s => ({ title: s.title.slice(0, 120), url: s.url })) : [],
+      results: Array.isArray(data.results) ? data.results : [],
       demo: false
     };
   } catch (error) {

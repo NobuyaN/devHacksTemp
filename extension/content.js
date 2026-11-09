@@ -135,6 +135,20 @@
     $("mk-mode").classList.toggle("is-live", !result.demo);
     setStatus(result.status, result.summary, result.detail);
     renderSources(result.sources);
+    document.getElementById("mk-search-attribution")?.remove();
+    const attribution = document.createElement("div");
+    attribution.id = "mk-search-attribution";
+    for (const item of result.results || []) {
+      const html = item.grounding?.search_entry_point?.rendered_content;
+      if (typeof html !== "string" || !html) continue;
+      const frame = document.createElement("iframe");
+      frame.title = "Google Search suggestions";
+      frame.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+      frame.style.cssText = "width:100%;min-height:180px;border:0";
+      frame.srcdoc = html;
+      attribution.appendChild(frame);
+    }
+    $("mk-sources").after(attribution);
     if (result.demo) $("mk-no-sources").textContent = "Preview only. Connect a Cloud Run backend to check claims and retrieve sources.";
     else if (!result.sources?.length) $("mk-no-sources").textContent = "No cited sources returned. This claim is not verified.";
   }

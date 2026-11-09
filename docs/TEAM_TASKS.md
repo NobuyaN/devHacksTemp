@@ -7,7 +7,7 @@
 | Priority | Area / owner | File(s) to start with | Task | Definition of done |
 | --- | --- | --- | --- | --- |
 | **P0** | **UI / Design — ____** | `extension/popup.html`, `popup.css`, `content.css`, `design/` | Review 3 logo proposals and polish colors, button sizes, sidebar spacing | Popup looks legible in Chrome; image licensing recorded; toolbar icon still clear at 16px |
-| **P0** | **AI / Backend — ____** | `backend/main.py`, `backend/requirements.txt` | Validate Gemini + Google Search grounding responses with a cloud account, with billing permission | Verified citations come from real results; failures return neutral uncertainty; no made-up URLs |
+| **P0** | **AI / Backend — SourceLens backend implementation** | `backend/main.py`, `backend/requirements.txt` | Validate Gemini + Google Search grounding responses with a cloud account, with billing permission | Verified citations come from real results; failures return neutral uncertainty; no made-up URLs |
 | **P0** | **Cloud / Security — ____** | `docs/SECURITY_AND_CREDITS.md`, `backend/` | Set up billing alerts/spend caps if available, least-privilege runtime identity, deployment access control | Costs are monitored, deployer knows demo endpoint risks, no real secrets in commits |
 | **P0** | **Extension / Auto Scan — ____** | `extension/content.js`, `background.js` | Test Auto Scan with real news articles, stop duplicate checks, handle dynamic pages | Auto Scan is opt-in per site, only marks evidence-backed warnings and has no unsafe page changes |
 | **P1** | **QA / Privacy — ____** | `docs/TEST_PLAN.md`, `sample-article.html` | Test permissions, private pages, keyboard navigation, error states, source links | All test cases documented; never frame heuristic candidate as falsehood |

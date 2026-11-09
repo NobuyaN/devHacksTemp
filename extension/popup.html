@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>mikata</title>
+  <link rel="stylesheet" href="popup.css" />
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <div class="sparkle top-sparkle" aria-hidden="true">✳</div>
+  <div class="shell">
+    <header class="topbar">
+      <!-- TODO(BRAND / Design): PROPOSAL ONLY. Review hand-drawn logo concepts in
+           design/logo-explorations/ before agreeing on a final logo. The current Chrome
+           toolbar icons are intentionally unchanged until an icon is readable at 16px.
+           Safe to swap this local image; never load remote JS/fonts into an MV3 popup. -->
+      <div class="brand-draft">
+        <img class="logo-candidate" src="assets/brand/logo-candidate.png"
+             alt="Mikata, draft hand-drawn logo with magnifying glass" />
+        <div class="japanese">みかた • your reading buddy <span class="draft-tag">logo idea</span></div>
+      </div>
+      <div class="header-star" aria-hidden="true">✻</div>
+    </header>
+    <section class="welcome">
+      <div class="eyebrow">A LITTLE PERSPECTIVE, EVERY DAY</div>
+      <h1>Curious if it's <em>true?</em></h1>
+      <p>Highlight something you read. We'll help you look a little closer.</p>
+    </section>
+    <div class="pill" id="mode-pill">✦ Design preview mode</div>
+    <section class="autoscan" aria-label="Auto Scan settings">
+      <div class="auto-top">
+        <div class="auto-icon" aria-hidden="true">✿</div>
+        <div class="auto-copy"><div class="auto-title">Auto Scan <span class="new-pill">new</span></div><div class="auto-subtitle">A thoughtful heads-up while you read.</div></div>
+        <label class="auto-switch" for="auto-toggle"><input type="checkbox" id="auto-toggle" aria-label="Enable automatic claim scanning on this website" /><span class="auto-track"></span></label>
+      </div>
+      <p class="auto-note" id="auto-note">Off by default · Enable only on sites you trust.</p>
+      <p class="auto-privacy">✦ Up to 2 claims per page load. When connected, Auto Scan makes live API requests that may cost money. Preview underlines are not misinformation warnings.</p>
+    </section>
+    <section class="actions">
+      <button id="selection-btn" class="primary" type="button">
+        <span class="button-icon">⌁</span> Check my highlighted text <span class="arrow">↗</span>
+      </button>
+      <div class="divider"><span>or paste a claim here</span></div>
+      <label class="visually-hidden" for="claim-input">Claim to check</label>
+      <textarea id="claim-input" maxlength="1000" rows="3" placeholder="I read that electric cars produce zero emissions..."></textarea>
+      <button id="paste-btn" class="secondary" type="button">Check this claim <span>→</span></button>
+      <button id="sample-btn" class="sample" type="button">✷ Try a sample claim</button>
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+    </section>
+    <details class="settings" id="settings">
+      <summary>✿ Connect your AI backend <span>⌄</span></summary>
+      <p>For real checks, enter a team-approved Cloud Run URL. Never paste an API key or private token here. Public endpoints can use cloud credits.</p>
+      <label for="api-url">Cloud Run URL</label>
+      <input id="api-url" type="url" spellcheck="false" placeholder="https://your-service.a.run.app" />
+      <div class="settings-buttons"><button id="save-btn" type="button">Save endpoint</button><button id="reset-btn" type="button">Use demo mode</button></div>
+    </details>
+    <footer>Read thoughtfully. Stay curious. <span>♡</span></footer>
+  </div>
+</body>
+</html>

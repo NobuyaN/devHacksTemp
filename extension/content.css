@@ -1,0 +1,65 @@
+/* Only Mikata's own UI is styled; site typography is untouched. */
+#mikata-extension-root, #mikata-extension-root * { box-sizing: border-box; }
+#mikata-extension-root { font-family: 'Avenir Next', Nunito, ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 14px; line-height: 1.48; letter-spacing: 0; color: #2f4941; position: relative; z-index: 2147483646; }
+#mikata-extension-root button { font: inherit; cursor: pointer; }
+#mikata-extension-root .mk-bubble { display: none; position: fixed; z-index: 2147483647; align-items: center; gap: 7px; padding: 10px 15px; border: 1px solid #cfe4d8; border-radius: 999px; color: #ffffff; background: #467e6c; box-shadow: 0 8px 28px rgba(27,64,52,.22); font-size: 12px; font-weight: 750; white-space: nowrap; transition: transform .17s ease, background .17s ease; }
+#mikata-extension-root .mk-bubble:hover { transform: translateY(-2px); background: #306c59; }
+#mikata-extension-root .mk-bubble.is-visible { display: inline-flex; }
+#mikata-extension-root .mk-bubble svg { width: 16px; height: 16px; }
+#mikata-extension-root .mk-panel { position: fixed; width: min(385px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); top: 12px; right: 12px; overflow: auto; padding: 0; border-radius: 25px; background: #fbf9f3; border: 1px solid #e9e8dc; box-shadow: 0 20px 85px rgba(35,62,51,.20); z-index: 2147483647; visibility: hidden; pointer-events: none; opacity: 0; transform: translateX(16px) scale(.98); transition: opacity .2s ease, transform .2s ease, visibility .2s; overscroll-behavior: contain; }
+#mikata-extension-root .mk-panel.is-open { visibility: visible; pointer-events: auto; opacity: 1; transform: translateX(0) scale(1); }
+#mikata-extension-root .mk-header { display: flex; justify-content: space-between; align-items: center; padding: 21px 22px 14px; background: linear-gradient(145deg, #f0f5e8, #fbf9f3 75%); }
+#mikata-extension-root .mk-brand { display: flex; align-items: center; gap: 9px; }
+#mikata-extension-root .mk-brand-icon { width: 35px; height: 35px; border-radius: 12px; background: #d9e9de; display: grid; place-items: center; }
+#mikata-extension-root .mk-brand-icon svg { width: 23px; height: 23px; }
+#mikata-extension-root .mk-wordmark { color: #31584b; font-size: 24px; font-weight: 850; letter-spacing: -.9px; line-height: 1; }
+#mikata-extension-root .mk-wordmark span { color: #e2a75b; }
+#mikata-extension-root .mk-subtitle { color: #87978a; font-size: 11px; margin-top: 5px; }
+#mikata-extension-root .mk-close { width: 32px; height: 32px; background: rgba(255,255,255,.65); border: 1px solid #e3e7dc; border-radius: 100px; color: #587166; display: grid; place-items: center; }
+#mikata-extension-root .mk-close:hover { background: #e7efe8; }
+#mikata-extension-root .mk-body { padding: 0 18px 20px; }
+#mikata-extension-root .mk-greeting { padding: 15px 5px 11px; color: #536e5f; font-weight: 700; font-size: 15px; }
+#mikata-extension-root .mk-card { border: 1px solid #ebebdf; border-radius: 17px; background: #fff; padding: 16px; margin-bottom: 12px; box-shadow: 0 3px 10px rgba(66,80,61,.025); }
+#mikata-extension-root .mk-label { display: block; margin-bottom: 8px; font-size: 10px; font-weight: 850; letter-spacing: 1.6px; text-transform: uppercase; color: #94a098; }
+#mikata-extension-root .mk-claim { font-size: 14px; color: #33493f; font-weight: 700; overflow-wrap: anywhere; max-height: 100px; overflow-y: auto; }
+#mikata-extension-root .mk-status-card { background: #fff0d9; border: 1px solid #f7e3c6; border-radius: 17px; padding: 16px; margin-bottom: 12px; }
+#mikata-extension-root .mk-status-card[data-status=supported] { background: #e8f5e9; border-color: #d1eacf; }
+#mikata-extension-root .mk-status-card[data-status=contradicted] { background: #f9e7e4; border-color: #f0d3ce; }
+#mikata-extension-root .mk-status-card[data-status=insufficient_evidence] { background: #edf0f8; border-color: #e0e4f0; }
+#mikata-extension-root .mk-status-card[data-status=error] { background: #f9e7e4; border-color: #f0d3ce; }
+#mikata-extension-root .mk-status-row { display: flex; align-items: center; gap: 9px; }
+#mikata-extension-root .mk-status-icon { background: rgba(255,255,255,.65); border-radius: 10px; padding: 6px 10px; font-size: 18px; line-height: 1; }
+#mikata-extension-root .mk-status-title { font-size: 16px; font-weight: 850; color: #75592c; }
+#mikata-extension-root .mk-status-card[data-status=supported] .mk-status-title { color: #32745b; }
+#mikata-extension-root .mk-status-card[data-status=contradicted] .mk-status-title { color: #aa6057; }
+#mikata-extension-root .mk-status-card[data-status=insufficient_evidence] .mk-status-title { color: #68638f; }
+#mikata-extension-root .mk-status-text { color: #645844; margin: 9px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+#mikata-extension-root .mk-status-card[data-status=supported] .mk-status-text { color: #426a55; }
+#mikata-extension-root .mk-status-card[data-status=contradicted] .mk-status-text { color: #7d5a55; }
+#mikata-extension-root .mk-status-card[data-status=insufficient_evidence] .mk-status-text { color: #5f6577; }
+#mikata-extension-root .mk-detail { font-size: 12px; color: #536c5c; line-height: 1.65; margin: 0; }
+#mikata-extension-root .mk-source-section { margin: 14px 0; }
+#mikata-extension-root .mk-section-title { font-size: 13px; color: #3b6253; font-weight: 800; margin: 0 4px 9px; display: flex; align-items: center; gap: 7px; }
+#mikata-extension-root .mk-source-empty { font-size: 12px; color: #8e988d; padding: 12px 15px; border: 1px dashed #dadfd6; border-radius: 13px; background: #fffdf8; }
+#mikata-extension-root .mk-sources { display: grid; gap: 7px; }
+#mikata-extension-root .mk-source-link { display: flex; align-items: center; justify-content: space-between; gap: 9px; color: #416e5f; background: #fff; border: 1px solid #e5e9df; border-radius: 12px; text-decoration: none; padding: 12px; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+#mikata-extension-root .mk-source-link:hover { background: #f0f7ed; }
+#mikata-extension-root .mk-footer { margin-top: 14px; padding: 12px 10px 2px; border-top: 1px solid #e5e9de; color: #8a9b8a; font-size: 10px; line-height: 1.5; }
+#mikata-extension-root .mk-mode { display: inline-block; border: 1px solid #e7dfb2; border-radius: 100px; background: #fff8d9; color: #9b8038; font-size: 10px; font-weight: 800; padding: 5px 10px; margin-bottom: 10px; }
+#mikata-extension-root .mk-mode.is-live { background: #e9f4e7; color: #437454; border-color: #d6e9d3; }
+#mikata-extension-root .mk-retry { border: 0; border-radius: 12px; background: #427d68; color: white; width: 100%; padding: 12px 15px; font-weight: 800; margin-top: 10px; }
+#mikata-extension-root .mk-retry:hover { background: #336c58; }
+#mikata-extension-root .mk-spinner { width: 14px; height: 14px; border: 2px solid #b0c8b7; border-top-color: #3e826e; border-radius: 50%; display: inline-block; animation: mikata-spin .7s linear infinite; }
+@keyframes mikata-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #mikata-extension-root *, #mikata-extension-root *::before { animation: none !important; transition: none !important; } }
+
+/* Markers are inserted into article text, outside the Mikata UI root. */
+.mikata-claim-highlight { cursor:pointer !important; color:inherit !important; background:transparent !important; border:0 !important; border-bottom:2px dotted #6b9e8a !important; border-radius:1px; text-decoration:none !important; -webkit-box-decoration-break:clone; box-decoration-break:clone; outline-offset:4px; }
+.mikata-claim-highlight:hover, .mikata-claim-highlight:focus-visible { background:#e8f3e8 !important; }
+.mikata-claim-highlight.is-context { border-bottom-color:#d49e51 !important; background:#fff1d633 !important; }
+.mikata-claim-highlight.is-contradicted { border-bottom-color:#bc7369 !important; background:#f8e0dc55 !important; }
+#mikata-extension-root .mk-scan-toast { position:fixed; z-index:2147483646; left:18px; bottom:18px; max-width:min(380px,calc(100vw - 36px)); display:flex; gap:9px; align-items:center; background:#fffdf7; color:#426a56; border:1px solid #e4e9dc; border-radius:18px; box-shadow:0 10px 32px rgba(46,67,48,.15); padding:11px 12px; font-size:12px; font-weight:650; }
+#mikata-extension-root .mk-scan-toast[hidden] { display:none !important; }
+#mikata-extension-root .mk-toast-symbol { background:#e1f1e3; color:#4b8067; padding:4px 8px; border-radius:10px; font-size:17px; }
+#mikata-extension-root .mk-toast-message { flex:1; line-height:1.45; }
+#mikata-extension-root #mk-toast-close { border:0; background:transparent; color:#849a87; font-size:18px; padding:0 3px; }

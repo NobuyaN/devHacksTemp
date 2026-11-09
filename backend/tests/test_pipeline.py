@@ -184,6 +184,21 @@ class APITests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn('private', response.text)
 
+    def test_unavailable_model_has_actionable_sanitized_error(self):
+        from google.genai.errors import ClientError
+        self.engine.extract.side_effect = ClientError(404, {'error': {'message':'private provider body'}})
+        response = self.client.post('/check', json={'claim':'Fixture claim text'})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json['code'], 'MODEL_UNAVAILABLE')
+        self.assertNotIn('private provider body', response.text)
+
+    def test_expired_credentials_have_actionable_error(self):
+        from google.auth.exceptions import RefreshError
+        self.engine.extract.side_effect = RefreshError('private token details')
+        response = self.client.post('/check', json={'claim':'Fixture claim text'})
+        self.assertEqual(response.json['code'], 'CLOUD_AUTH_ERROR')
+        self.assertNotIn('private token details', response.text)
+
     def test_rate_limit(self):
         for _ in range(6): self.client.post('/check', json={'claim':'Fixture claim text'})
         response = self.client.post('/check', json={'claim':'Fixture claim text'})

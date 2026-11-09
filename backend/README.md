@@ -22,7 +22,7 @@ gcloud auth application-default login
 gcloud auth application-default set-quota-project "$PROJECT_ID"
 export GOOGLE_CLOUD_PROJECT="$PROJECT_ID"
 export GOOGLE_CLOUD_LOCATION=global
-export GEMINI_MODEL=gemini-2.5-flash
+export GEMINI_MODEL=gemini-3.5-flash
 export ALLOWED_ORIGINS=http://localhost:5000,http://127.0.0.1:5000
 backend/.venv/bin/gunicorn --chdir backend --bind 127.0.0.1:8080 --workers 1 --threads 4 --timeout 55 main:app
 ```
@@ -127,7 +127,7 @@ backend/.venv/bin/pip-compile --generate-hashes --output-file backend/requiremen
 
 ## Cloud preflight — read-only, required before deployment
 
-The supplied project number is **261427009524**. Its project ID has **not been confirmed in this development environment** (Google Cloud CLI unavailable). Do not guess the project ID or use the number as a Firebase alias. After installing official Cloud/Firebase CLIs, run:
+The supplied project number **261427009524** was confirmed as project ID **saladmanderdevhacks** using a read-only Cloud CLI check. Vertex AI and billing were confirmed enabled. Credit eligibility and deployment IAM still require review. Do not use the project number as a Firebase alias. To repeat preflight with your own account, run:
 
 ```sh
 gcloud auth list --filter=status:ACTIVE --format='value(account)'
@@ -182,7 +182,7 @@ gcloud run deploy sourcelens-api --source backend \
   --service-account "$RUNTIME_SA" --build-service-account "projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
   --no-allow-unauthenticated --max-instances 1 --min-instances 0 \
   --concurrency 4 --timeout 55 --memory 512Mi --cpu 1 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-2.5-flash"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-3.5-flash"
 export API_URL="$(gcloud run services describe sourcelens-api --project "$PROJECT_ID" --region asia-northeast1 --format='value(status.url)')"
 curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" "$API_URL/api/health"
 ```
@@ -198,4 +198,8 @@ firebase deploy --only hosting --project "$PROJECT_ID"
 
 Firebase must already be attached to the **same verified project** with a default Hosting site; initialize that through the approved Firebase console if missing. `--project` makes an unverified `.firebaserc` unnecessary. `firebase.json` is committed and pins the Cloud Run revision using `pinTag`. Deploy backend first, Hosting second; redeploy Hosting to move its pin after a later backend release. [Firebase Cloud Run rewrite documentation](https://firebase.google.com/docs/hosting/cloud-run).
 
-Verify the actual published dashboard by submitting a low-cost test, inspecting `/api/check` in browser Network, opening citation links, checking Search suggestions and provenance quotes, and confirming Cloud Run logs contain no private content. Test the extension separately with the returned Cloud Run URL. No deployment, authenticated live Gemini check, billing/model eligibility check, or interactive Chrome/dashboard test has been performed here. Docker is unavailable here, so the container image build is also pending.
+Verify the actual published dashboard by submitting a low-cost test, inspecting `/api/check` in browser Network, opening citation links, checking Search suggestions and provenance quotes, and confirming Cloud Run logs contain no private content. Test the extension separately with the returned Cloud Run URL. No deployment, credit-eligibility check, or interactive Chrome end-to-end test has been performed here. A controlled live Gemini 3.5 Flash check completed with six grounded sources and nine grounding supports; none of those article pages was successfully inspected, so their independence remained unresolved. This is a connectivity check, not a verification-accuracy benchmark. Docker is unavailable here, so the container image build is also pending.
+
+## Model availability troubleshooting
+
+The original starter used `gemini-2.5-flash`, which returned Vertex 404 in this project. The default and examples now use `gemini-3.5-flash`; a controlled live extraction was verified against this project. An existing `GEMINI_MODEL` environment variable overrides the default, so export the replacement and restart an already running backend. See [Google model lifecycle](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/model-versions). `MODEL_UNAVAILABLE` and `CLOUD_AUTH_ERROR` distinguish model/access failures without exposing provider bodies, tokens or input text.

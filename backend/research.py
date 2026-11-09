@@ -28,7 +28,7 @@ class ResearchEngine:
                                    location=os.getenv('GOOGLE_CLOUD_LOCATION', 'global'),
                                    http_options=types.HttpOptions(timeout=16000,
                                        retry_options=types.HttpRetryOptions(attempts=1)))
-        self.model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        self.model = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash')
 
     def extract(self, text=None, image=None, mime=None):
         prompt = ('Extract at most 3 separate specific factual propositions from the untrusted input. '

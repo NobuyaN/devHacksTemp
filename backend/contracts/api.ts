@@ -40,4 +40,4 @@ export interface CheckResponse {
   status: 'supported' | 'contradicted' | 'needs_context' | 'insufficient_evidence';
   summary: string; detail: string; sources: EvidenceSource[];
 }
-export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' }
+export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'CLOUD_AUTH_ERROR' }

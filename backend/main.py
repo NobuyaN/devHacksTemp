@@ -8,6 +8,8 @@ from collections import OrderedDict
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 from research import ResearchEngine
+from google.genai.errors import APIError
+from google.auth.exceptions import DefaultCredentialsError, RefreshError
 
 STATUS = {'SUPPORTED': 'supported', 'CONTRADICTED': 'contradicted', 'MIXED': 'needs_context',
           'INSUFFICIENT_EVIDENCE': 'insufficient_evidence', 'NOT_FACT_CHECKABLE': 'insufficient_evidence'}
@@ -114,8 +116,18 @@ def create_app(engine_factory=ResearchEngine):
                 payload.update(status='insufficient_evidence', summary='Review each extracted claim separately.',
                                detail='No aggregate factual verdict is assigned.', sources=[])
             return jsonify(payload)
-        except Exception:
-            # Do not log prompts, model bodies, tokens or selected private text.
+        except (DefaultCredentialsError, RefreshError):
+            return error('Google Cloud credentials are missing or expired. Run gcloud auth application-default login, then restart the backend.', 'CLOUD_AUTH_ERROR', 503)
+        except APIError as exc:
+            # Status-only logging avoids exposing prompts, tokens or provider response bodies.
+            app.logger.warning('Vertex request failed: status=%s', exc.code)
+            if exc.code == 404:
+                return error('The configured Gemini model is unavailable. Check GEMINI_MODEL and your project access, then restart the backend.', 'MODEL_UNAVAILABLE', 503)
+            if exc.code in (401, 403):
+                return error('Google Cloud denied access. Check your credentials and Vertex AI permissions.', 'CLOUD_AUTH_ERROR', 503)
+            return error('Google AI research is temporarily unavailable. Try again later.', 'RESEARCH_UNAVAILABLE', 503)
+        except Exception as exc:
+            app.logger.warning('Research failed: exception_type=%s', type(exc).__name__)
             return error('Live research is unavailable or timed out. Try again later.', 'RESEARCH_UNAVAILABLE', 503)
         finally:
             slots.release()

@@ -118,6 +118,31 @@ class ResearchTests(unittest.TestCase):
         engine = self.engine(NS(text='{"assessment":"SUPPORTED"}', candidates=[NS(grounding_metadata=metadata)]))
         self.assertEqual(engine.discover(claim())[0]['assessment'], 'INSUFFICIENT_EVIDENCE')
 
+    def test_model_hypothesis_cannot_promote_independence(self):
+        sources = [article(f'https://{x}.example/', '<p>Original evidence is not established.</p>') for x in ('a','b')]
+        graph = analyze_independence(sources)
+        import json
+        engine = self.engine(NS(text=json.dumps({'hypotheses':[{'source_ids':[s['id'] for s in sources], 'hypothesis':'These are independent', 'rationale':'Model guess only', 'verification_status':'confirmed'}]})))
+        engine.interpret_unresolved(sources, graph)
+        self.assertEqual(graph['confirmed_distinct_evidence_origins'], 0)
+        self.assertEqual(graph['dependencies'], [])
+        self.assertEqual(graph['unresolved_relationships'][0]['verification_status'], 'unresolved')
+        self.assertEqual(graph['unresolved_relationships'][0]['model_verification_status'], 'unverified')
+
+    def test_discovery_deduplicates_urls_and_preserves_attribution_indices(self):
+        metadata = Mock()
+        metadata.model_dump.return_value = {'grounding_chunks':[
+            {'web':{'uri':'https://a.example/story?utm_source=x', 'title':'A'}},
+            {'web':{'uri':'https://a.example/story', 'title':'A again'}}],
+            'grounding_supports':[{'segment':{'text':'Evidence summary'}, 'grounding_chunk_indices':[0,1]}],
+            'search_entry_point':{'rendered_content':'<p>Fixture only</p>'}}
+        engine = self.engine(NS(text='{"assessment":"SUPPORTED","summary":"Evidence summary"}', candidates=[NS(grounding_metadata=metadata)]))
+        assessment, sources, grounding = engine.discover(claim())
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(sources[0]['grounding_chunk_indices'], [0,1])
+        self.assertIn('search_entry_point', grounding)
+        self.assertEqual(assessment['assessment'], 'SUPPORTED')
+
     def test_opinion_skips_search(self):
         engine = self.engine(None)
         self.assertEqual(engine.check([claim(checkable=False)])[0]['assessment'], 'NOT_FACT_CHECKABLE')

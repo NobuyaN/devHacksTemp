@@ -1,7 +1,7 @@
 /** Wire contracts for /api/check and /api/analyze-image; extension legacy fields remain additive. */
 export type Assessment = 'SUPPORTED' | 'CONTRADICTED' | 'MIXED' | 'INSUFFICIENT_EVIDENCE' | 'NOT_FACT_CHECKABLE';
 export interface Claim { id: string; text: string; checkable: boolean; reason: string }
-export interface Citation { url: string; excerpt: string; attributed: boolean; context_sentence: string }
+export interface Citation { url: string; excerpt: string; attributed: boolean; syndicated: boolean; context_sentence: string }
 export interface EvidenceSource {
   id: string; url: string; title: string; grounding_chunk_indices: number[];
   publisher: string | null; published_at: string | null;
@@ -24,7 +24,7 @@ export interface IndependenceAnalysis {
   sources_with_unresolved_independence: string[];
   evidence_origins: { id: string; url: string; source_ids: string[]; evidence_edge_ids: string[]; original_artifact_identified: boolean }[];
   dependencies: SourceDependency[];
-  unresolved_relationships: { source_ids: string[]; verification_status: 'unresolved'; reason: string; suspected_relationship_type?: 'possible_duplicate_or_syndication'; evidence?: string; supporting_source_urls?: string[] }[];
+  unresolved_relationships: { source_ids: string[]; verification_status: 'unresolved'; reason: string; suspected_relationship_type?: 'possible_duplicate_or_syndication'; evidence?: string; supporting_source_urls?: string[]; model_hypothesis?: string; model_rationale?: string; model_verification_status?: 'unverified' }[];
   limitations: string[];
 }
 export interface FactCheckResult {

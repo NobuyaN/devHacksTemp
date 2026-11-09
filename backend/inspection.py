@@ -166,7 +166,8 @@ def inspect_source(source, fetcher=fetch_article):
             left = left + 2 if left >= 0 else 0
             right = re.search(r'[.!?](?:\s|$)', text[start + len(link['label'].strip()):])
             end = start + len(link['label'].strip()) + right.end() if right else len(text)
-            citations.append({'url': target, 'excerpt': excerpt, 'attributed': attributed,
+            syndicated = bool(re.search(r'\b(originally published(?: by| in)?|republished (?:from|with))\s*(?:the\s+)?$', prefix, re.I))
+            citations.append({'url': target, 'excerpt': excerpt, 'attributed': attributed, 'syndicated': syndicated,
                               'context_sentence': text[left:end].strip()})
         original = None
         # Narrow, auditable primary-study rule. Never infer original evidence from a news domain.

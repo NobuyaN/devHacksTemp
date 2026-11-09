@@ -37,7 +37,7 @@ def analyze_independence(sources):
             url = citation['url']
             target = known.get(url, 'origin_' + stable_id(url))
             kind = 'cites_original_artifact' if original_artifact(url) else 'explicit_attribution'
-            if re.search(r'originally published|republished (?:from|with)|reporting by', citation['excerpt'], re.I):
+            if citation.get('syndicated'):
                 kind = 'syndicated_from'
             edge = dict(id=stable_id(source['id'] + target + kind), source_id=source['id'], target_id=target,
                         relationship_type=kind, evidence=citation['excerpt'], supporting_source_url=source['url'],

@@ -89,7 +89,7 @@ def build(config, output):
     for group in firebase['hosting'].get('headers', []):
         for header in group.get('headers', []):
             if header['key'] == 'Content-Security-Policy':
-                csp = header['value'].replace("connect-src 'self'", "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com")
+                csp = header['value'].replace(' http://localhost:8080', '').replace(' http://127.0.0.1:8080', '').replace("connect-src 'self'", "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com")
         group['headers'] = [h for h in group.get('headers', []) if h['key'] != 'Content-Security-Policy']
     # Do not impose the app CSP on Firebase's reserved email-action handlers.
     if csp:

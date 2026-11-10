@@ -1,6 +1,14 @@
-# SourceLens shared public beta — review before provisioning
+# SourceLens shared public beta
 
-This is a concrete deployment plan, not a record of deployment. No public resources or accounts have been created by this change. Project `saladmanderdevhacks` was confirmed as number `261427009524`. Read-only preflight found Vertex enabled, the core deployer permissions tested present, and no Firebase project available to the Firebase web-app listing. Cloud Run, Cloud Build, Artifact Registry, Firebase and Firestore setup is still pending. Repeat preflight immediately before approved changes.
+The owner approved provisioning and public deployment on 2026-11-10. The existing project `saladmanderdevhacks` was verified as number `261427009524`. Firebase Authentication, the Tokyo named Firestore database and quota TTL, dedicated service accounts, the Auth-only public API key, Cloud Run and Firebase Hosting have been provisioned. This is a monitored beta, not a Chrome Web Store release or an unlimited commercial service.
+
+- Install: https://saladmanderdevhacks.web.app/install.html
+- Dashboard: https://saladmanderdevhacks.web.app/
+- API health through Hosting: https://saladmanderdevhacks.web.app/api/health
+- Direct backend: https://sourcelens-api-6gj6yd2pfq-an.a.run.app
+- Released package/build configuration: `build/public-v2` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
+
+The first regional routing initialization took about ten minutes after the container became ready. Do not publish a new installation link until both the health check and a hosted signed request pass.
 
 ## What changes for users
 
@@ -8,7 +16,7 @@ Users install a release package with the shared endpoint already configured, cre
 
 The initial distribution is a downloadable ZIP that users load unpacked. Chrome Web Store submission, developer-account review and publication remain separate approvals. Do not call this package a published store extension.
 
-## Proposed resources and limits
+## Resources and limits
 
 - Existing Google project, with the additional APIs below enabled.
 - Firebase linked to that project; one SourceLens Web app; email/password Firebase Authentication with verified-email enforcement in the backend.
@@ -80,7 +88,7 @@ Do not grant Owner/Editor to runtime/build identities. Deployer needs actAs on t
 Copy `deployment/public-config.example.json` to a **build-local** JSON file. Fill the public Auth-only key. Optionally add an operator-approved public support email; a blank contact field publishes no personal email. The builder rejects missing placeholders. `apiOrigin` is the approved Hosting origin. Public Auth configuration is allowed in the package; OAuth tokens, passwords and service-account keys are not.
 
 ```sh
-python3 scripts/build_public.py --config build/public-config.json --output build/public-v1
+python3 scripts/build_public.py --config build/public-config.json --output build/public-v2
 (cd backend && .venv/bin/python -m unittest discover -s tests -v)
 npm run test:extension
 npm run build
@@ -89,13 +97,13 @@ python3 scripts/smoke_check.py
 
 Each output directory must be new/empty. The builder produces the extension folder, reproducible ZIP, Hosting site and a matching Firebase config. It applies the app CSP only to app pages, preserving Firebase reserved email-verification/reset handlers. It limits release host permissions to the pinned service and Firebase Auth APIs, hides manual endpoint settings, and includes the privacy/data-flow page. The backend never trusts client quota or verification flags.
 
-## Deployment — still approval required
+## Deployment — owner approval required for future releases
 
 ```sh
 gcloud run deploy sourcelens-api --source backend --project "$PROJECT_ID" \
   --region asia-northeast1 --service-account "$RUNTIME_SA" \
   --build-service-account "projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
-  --no-allow-unauthenticated --max-instances 1 --min-instances 0 \
+  --no-allow-unauthenticated --max=1 --min=0 --max-instances 1 --min-instances 0 \
   --concurrency 4 --timeout 55 --memory 512Mi --cpu 1 \
   --env-vars-file deployment/public.env.yaml
 ```
@@ -105,13 +113,13 @@ Check the private service health using an authorized operator's identity token w
 ```sh
 gcloud run services add-iam-policy-binding sourcelens-api --region asia-northeast1 \
   --project "$PROJECT_ID" --member=allUsers --role=roles/run.invoker
-firebase deploy --config build/public-v1/firebase.json --only hosting,firestore:rules --project "$PROJECT_ID"
+firebase deploy --config build/public-v2/firebase.json --only hosting,firestore:rules --project "$PROJECT_ID"
 ```
 
 Confirm the default Firebase Hosting site exists; creating it is part of the approved Firebase provisioning if absent. Deployment pins the selected Cloud Run revision. Smoke-test **401 for an unsigned `/api/check` request**, verify no Gemini call is made, then test signup/email verification and a signed check in a second Chrome profile using the **release** extension. Test quota rejection, sign-out/deletion and counter persistence. Do not send verification/reset emails to anyone unless they explicitly initiate the corresponding account action.
 
 ## Current verification and limits
 
-Browser script-generated highlight/retry clicks cannot start paid manual requests; existing results can still be opened without a new request. Controlled tests cover public-mode fail-closed defaults, token/verifier gating, verified-email enforcement, quota read/write ordering, persistent per-user/global counters, model blocking on quota failure, public package defaults, token routing to the pinned origin, account session handling and profile-isolated state. They do not prove live Firebase/Firestore/Cloud Run integration before those resources are provisioned and tested.
+Browser script-generated highlight/retry clicks cannot start paid manual requests; existing results can still be opened without a new request. Controlled tests cover public-mode fail-closed defaults, token/verifier gating, verified-email enforcement, quota read/write ordering, persistent per-user/global counters, model blocking on quota failure, public package defaults, token routing to the pinned origin, account session handling and profile-isolated state. Live deployed tests additionally confirmed unsigned requests return 401, an unverified synthetic account returns 403, a verified synthetic account completes a real grounded research request, its durable counter persists, and its exhausted daily allowance returns 429. Synthetic accounts were deleted afterward; no verification/reset emails were sent. Hosted astronomy checks completed in 16.8 seconds initially and 14.2 seconds on final revision `sourcelens-api-00002-482`. The final check returned zero inspected pages (three grounding-redirect robots denials and one publisher-candidate timeout). IPv4-first connections and a bounded checked-address fallback are deployed, but these tests do not establish improved publisher retrieval rates or generally resolved independence. Direct Firebase-client database access also returned 403. Automated validation passed 61 backend tests, 30 extension tests, TypeScript/JavaScript checks and the structure smoke check. The published ZIP was downloaded and hash-matched to the release artifact. Interactive installation/email verification in a real Chrome profile still needs manual testing; no browser was connected in this environment.
 
 `robots.txt` presence does not imply denial. Rules are checked per URL. Some public publisher pages were fetched successfully, but Google grounding redirects explicitly disallow automated crawling; candidates and inaccessible pages remain labeled. This deployment does not convert unknown provenance into confirmed independence. The general independence detector remains a prototype with narrow positive coverage.

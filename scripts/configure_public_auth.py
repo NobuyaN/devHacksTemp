@@ -16,8 +16,16 @@ if __name__ == '__main__':
     args=parser.parse_args()
     token=subprocess.run(['gcloud','auth','print-access-token'],capture_output=True,text=True,check=True).stdout.strip()
     url='https://identitytoolkit.googleapis.com/admin/v2/projects/'+args.project+'/config'
-    headers={'Authorization':'Bearer '+token}
+    headers={'Authorization':'Bearer '+token,'x-goog-user-project':args.project}
     if args.enable_email_password:
+        # Fresh Firebase projects do not have an Auth configuration until initialized.
+        response=requests.get(url,headers=headers,timeout=15)
+        if response.status_code == 404 and 'CONFIGURATION_NOT_FOUND' in response.text:
+            response=requests.post('https://identitytoolkit.googleapis.com/v2/projects/'+args.project+
+                '/identityPlatform:initializeAuth',headers=headers,json={},timeout=30)
+        if not response.ok:
+            print('Firebase Auth initialization check failed with HTTP',response.status_code)
+            sys.exit(1)
         response=requests.patch(url,params={'updateMask':'signIn.email'},headers=headers,
             json={'signIn':{'email':{'enabled':True,'passwordRequired':True}}},timeout=15)
     else:

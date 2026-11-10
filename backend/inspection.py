@@ -40,7 +40,29 @@ class PinnedHTTPS(http.client.HTTPSConnection):
         self.address = address
     def connect(self):
         sock = socket.create_connection((self.address, 443), self.timeout)
-        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+        try:
+            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+        except OSError:
+            sock.close()
+            raise
+
+
+def connect_public(host, addresses, deadline):
+    # Cloud Run's default outbound network supports IPv4. Lexical address sorting
+    # can select IPv6 first and time out despite a reachable IPv4 publisher.
+    ordered = sorted(addresses, key=lambda a: (ipaddress.ip_address(a).version, a))
+    for index, address in enumerate(ordered[:2]):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Inspection deadline exceeded')
+        conn = PinnedHTTPS(host, address, min(remaining, 1.5 if index == 0 and len(ordered) > 1 else 3))
+        try:
+            conn.connect()
+            return conn
+        except OSError:
+            conn.close()
+            if index + 1 >= min(len(ordered), 2):
+                raise
 
 
 def fetch_html(url, deadline=None, robots=False, check_robots=False):
@@ -65,7 +87,7 @@ def fetch_html(url, deadline=None, robots=False, check_robots=False):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError('Inspection deadline exceeded')
-        conn = PinnedHTTPS(host, sorted(addresses)[0], min(remaining, 3))
+        conn = connect_public(host, addresses, deadline)
         try:
             p = urlsplit(url)
             conn.request('GET', urlunsplit(('', '', p.path, p.query, '')), headers={

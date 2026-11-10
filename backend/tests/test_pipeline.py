@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace as NS
 from unittest.mock import patch, Mock
 from dependencies import analyze_independence
-from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES, InspectionFailure
+from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES, InspectionFailure, connect_public
 from main import create_app
 from research import ResearchEngine
 
@@ -77,6 +77,28 @@ class DependencyTests(unittest.TestCase):
         for ip in ['127.0.0.1', '10.0.0.1', '169.254.169.254', '::1', '::ffff:127.0.0.1']:
             with patch('inspection.socket.getaddrinfo', return_value=[(2,1,6,'',(ip,443))]):
                 with self.assertRaises(ValueError): fetch_html('https://metadata.example/')
+
+    def test_publisher_connection_prefers_ipv4_over_lexically_first_ipv6(self):
+        import time
+        connection = Mock()
+        with patch('inspection.PinnedHTTPS', return_value=connection) as ctor:
+            self.assertIs(connect_public('publisher.example', {'2606:4700:4700::1111','8.8.8.8'}, time.monotonic()+5), connection)
+            self.assertEqual(ctor.call_args.args[1], '8.8.8.8')
+
+    def test_publisher_connection_tries_second_checked_address(self):
+        import time
+        failed, reachable = Mock(), Mock()
+        failed.connect.side_effect = TimeoutError()
+        with patch('inspection.PinnedHTTPS', side_effect=[failed, reachable]) as ctor:
+            self.assertIs(connect_public('publisher.example', {'8.8.8.8','9.9.9.9'}, time.monotonic()+5), reachable)
+            self.assertEqual(ctor.call_count, 2)
+            failed.close.assert_called_once()
+
+    def test_mixed_public_and_private_dns_answers_are_blocked_before_connect(self):
+        rows = [(2,1,6,'',(ip,443)) for ip in ('8.8.8.8','127.0.0.1')]
+        with patch('inspection.socket.getaddrinfo', return_value=rows), patch('inspection.PinnedHTTPS') as ctor:
+            with self.assertRaises(InspectionFailure): fetch_html('https://publisher.example/')
+            ctor.assert_not_called()
 
     def test_redirect_to_private_is_blocked(self):
         response = Mock(status=302)

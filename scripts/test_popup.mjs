@@ -18,6 +18,8 @@ test('fresh public profile gets sign-in UI and pinned service, not endpoint conf
   w.eval(code);const get=id=>w.document.getElementById(id);
   await until(()=>get('settings').hidden && /Create|create/.test(get('account-status').textContent));
   assert.equal(get('account-panel').hidden,false);
+  assert.equal(get('auto-toggle'),null);
+  assert.doesNotMatch(w.document.body.textContent,/Auto Scan/);
   assert.equal(get('api-url').value,'https://fixture-project.web.app');
   assert.equal('password' in calls[0],false);
   get('account-email').value='user@example.test';get('account-password').value='fixture-password';get('account-create').click();

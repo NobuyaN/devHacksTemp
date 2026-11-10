@@ -29,51 +29,24 @@ async function until(predicate) {
   for (let i = 0; i < 100; i++) { if (predicate()) return; await delay(5); }
   throw new Error('Fixture DOM did not reach the expected state');
 }
-test('Auto Scan is off by default and does not make cloud requests', async t => {
-  const p = page({ enabled: false }); t.after(() => p.window.close());
-  await delay(30); assert.equal(p.calls.length, 0);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
-});
-test('Auto Scan checks at most two candidates and clicking a warning reuses its result', async t => {
-  const p = page(); t.after(() => p.window.close());
-  await until(() => /source-backed warnings/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.calls.length, 2);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight.is-contradicted').length, 2);
-  p.document.querySelector('.mikata-claim-highlight').click();
-  await until(() => p.document.querySelector('#mk-status').dataset.status === 'contradicted');
-  assert.equal(p.calls.length, 2);
-  p.toggle(false);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
+test('page loading never checks claims, including legacy enabled-site preferences', async t => {
+  const p = page({ enabled: true, config: { authRequired: true, apiOrigin: 'https://fixture-project.web.app' } });
+  t.after(() => p.window.close());
+  await delay(50);
   p.toggle(true);
-  await until(() => /limit reached/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.calls.length, 2);
-});
-test('supported claims remove markers and do not imply the whole page was checked', async t => {
-  const p = page({ result: cited('supported') }); t.after(() => p.window.close());
-  await until(() => /rest of the page was not checked/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.calls.length, 2);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
-});
-test('failed checks are reported as incomplete, not as a clean scan', async t => {
-  const p = page({ result: { error: 'Fixture provider busy', code: 'PROVIDER_UNAVAILABLE' } }); t.after(() => p.window.close());
-  await until(() => /Scan incomplete: 2 checks failed/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
-});
-test('uncited checks produce no warnings and explicitly report missing evidence', async t => {
-  const p = page({ result: { ...cited('contradicted'), sources: [] } }); t.after(() => p.window.close());
-  await until(() => /lacked cited evidence/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
-});
-test('preview markers never become misinformation warnings or send requests', async t => {
-  const p = page({ endpoint: '' }); t.after(() => p.window.close());
-  await until(() => /preview only/.test(p.document.querySelector('#mk-toast-message').textContent));
+  await delay(30);
   assert.equal(p.calls.length, 0);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight.is-review').length, 2);
+  assert.equal(p.document.querySelector('article').innerHTML, paragraphs.replace(/^<article>|<\/article>$/g, ''));
+  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight, #mk-scan-toast').length, 0);
 });
-test('no candidate means not fact checked, and password pages are skipped', async t => {
-  const p = page({ html: '<input type="password">' + paragraphs }); t.after(() => p.window.close());
-  await until(() => /has not been fact-checked/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.calls.length, 0);
+test('explicit popup checks still render the claim, verdict and citations', async t => {
+  const p = page(); t.after(() => p.window.close());
+  p.open('A controlled manual fixture claim.');
+  await until(() => p.document.querySelector('#mk-status').dataset.status === 'contradicted');
+  assert.equal(p.calls.length, 1);
+  assert.equal(p.calls[0].claim, 'A controlled manual fixture claim.');
+  assert.match(p.document.querySelector('#mk-claim').textContent, /controlled manual fixture/);
+  assert.equal(p.document.querySelector('#mk-sources a').href, 'https://source.example/report');
 });
 
 test('manual results disclose zero inspection and per-source blocking reasons', async t => {
@@ -86,17 +59,6 @@ test('manual results disclose zero inspection and per-source blocking reasons', 
   assert.match(text, /Article-level provenance could not be checked/);
   assert.match(text, /robots policy disallows/);
   assert.match(text, /0 confirmed distinct evidence origins/);
-});
-
-test('public Auto Scan uses the packaged endpoint without per-profile manual settings', async t => {
-  const p = page({ endpoint: '', config: { authRequired: true, apiOrigin: 'https://fixture-project.web.app' } }); t.after(() => p.window.close());
-  await until(() => p.calls.length === 2);
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight.is-contradicted').length, 2);
-});
-test('public signed-out Auto Scan gives sign-in instructions instead of clean-page claims', async t => {
-  const p = page({ endpoint: '', config: { authRequired: true, apiOrigin: 'https://fixture-project.web.app' }, result: { error: 'Sign in first', code: 'AUTH_REQUIRED' } }); t.after(() => p.window.close());
-  await until(() => /Sign in and verify/.test(p.document.querySelector('#mk-toast-message').textContent));
-  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
 });
 
 test('webpage scripts cannot synthesize a paid highlight or retry click', async t => {

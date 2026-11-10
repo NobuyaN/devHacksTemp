@@ -1,7 +1,6 @@
 // TEAM HANDOFF — toolbar popup (visuals + settings).
 // TODO(UI): Test draft logo readability, spacing and keyboard focus at 100% / 125% zoom.
 // TODO(SECURITY): The backend URL is *not* a secret. Never save API keys/tokens here.
-// TODO(PRIVACY): If adding a global scan toggle, keep opt-in / per-site consent visible.
 // See docs/TEAM_TASKS.md and docs/SECURITY_AND_CREDITS.md before adding features.
 
 const $ = id => document.getElementById(id);
@@ -53,7 +52,7 @@ $("save-btn").addEventListener("click", async () => {
   if (!validUrl(url)) return setMessage("Use an https://…run.app URL, or http://localhost for testing.");
   await chrome.storage.local.set({ apiUrl: new URL(url).origin });
   updateMode(url);
-  setMessage("Endpoint saved. Live checks may use Google Cloud credits—please keep Auto Scan off when not testing.");
+  setMessage("Endpoint saved. Checking a claim sends it to your backend and may use Google Cloud credits.");
 });
 $("reset-btn").addEventListener("click", async () => {
   await chrome.storage.local.remove("apiUrl");
@@ -68,43 +67,6 @@ chrome.storage.local.get("apiUrl").then(({ apiUrl }) => {
   if (publicConfig.authRequired) $("settings").hidden = true;
 });
 
-
-// Auto Scan is explicitly opted into PER WEBSITE and starts disabled everywhere else.
-let currentOrigin = null;
-function describeSite() { return currentOrigin ? new URL(currentOrigin).hostname : "this page"; }
-async function initializeAutoScan() {
-  const toggle = $("auto-toggle");
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = new URL(tab?.url || "");
-    if (!(["https:", "http:"].includes(url.protocol))) throw new Error("unsupported");
-    currentOrigin = url.origin;
-    const { autoScanSites = {} } = await chrome.storage.local.get("autoScanSites");
-    toggle.checked = autoScanSites[currentOrigin] === true;
-    $("auto-note").textContent = `${toggle.checked ? "On" : "Off"} for ${describeSite()} · saved for this website`;
-  } catch (_) {
-    toggle.disabled = true;
-    $("auto-note").textContent = "Open a normal website to use Auto Scan.";
-  }
-}
-$("auto-toggle").addEventListener("change", async event => {
-  if (!currentOrigin) return;
-  const toggle = event.currentTarget;
-  toggle.disabled = true;
-  try {
-    const { autoScanSites = {} } = await chrome.storage.local.get("autoScanSites");
-    const updated = { ...autoScanSites };
-    if (toggle.checked) updated[currentOrigin] = true;
-    else delete updated[currentOrigin];
-    await chrome.storage.local.set({ autoScanSites: updated });
-    $("auto-note").textContent = `${toggle.checked ? "On" : "Off"} for ${describeSite()} · saved for this website`;
-    setMessage(toggle.checked ? "Auto Scan enabled! The current page will show gentle claim indicators." : "Auto Scan disabled here. Existing indicators are removed.");
-  } catch (error) {
-    toggle.checked = !toggle.checked;
-    setMessage(`Couldn't save Auto Scan: ${error.message}`);
-  } finally { toggle.disabled = false; }
-});
-initializeAutoScan();
 
 async function accountAction(type) {
   const request = { type };
@@ -136,7 +98,6 @@ function renderAccount(state) {
 if (publicConfig.authRequired) {
   $("account-panel").hidden = false;
   $("account-privacy").href = publicConfig.apiOrigin + "/privacy.html";
-  $("auto-privacy-note").textContent = "Up to 2 selected claims per page load use your check allowance. Auto Scan is off by default; underlines are not a verdict on the whole page.";
   accountAction("MIKATA_AUTH_STATUS").catch(error => setMessage(error.message));
 }
 $("account-form").addEventListener("submit", event => { event.preventDefault(); accountAction("MIKATA_AUTH_SIGN_IN").catch(error => setMessage(error.message)); });

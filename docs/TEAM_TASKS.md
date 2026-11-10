@@ -41,3 +41,8 @@ VS Code → Search → `TODO(` will show handoff notes across the codebase.
 ## SourceLens public-beta update
 
 The backend owner has implemented and deployed a self-configuring extension release, Firebase end-user authentication, verified-email enforcement, durable named-Firestore quotas and release/deployment documentation. Local development remains available; the owner approved public provisioning on 2026-11-10, and the shared beta is deployed at https://saladmanderdevhacks.web.app/install.html. The resource/permission/cost proposal is in `deployment/PUBLIC_BETA.md`; Cloud Run/Firebase integration has been live-tested; Chrome Web Store publication has not been performed. Controlled tests cover profile-isolated sessions and quota/model gates. The original packaged-starter status above is historical; source independence remains a prototype with explicit unresolved results.
+
+
+## Extension update — 0.3.1
+
+Auto Scan was removed at the owner’s request. The current extension checks only explicitly selected or pasted claims. Old scan settings are ignored. The existing manual sidebar, citations, source-provenance rendering and account flow are preserved. Use `docs/releases/v0.3.1-beta.1.md` for current judge instructions.

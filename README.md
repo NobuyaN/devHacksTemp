@@ -1,3 +1,5 @@
+> **Current release (0.3.1): manual checks only.** Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.3.1 beta release notes](docs/releases/v0.3.1-beta.1.md).
+
 # DevFest Hackathon 2026 提出用リポジトリ
 
   DevFest Hackathon 2026 のチームの **最終提出用** リポジトリです。提出期限までに、作品のコードと資料をこのリポジトリに置いてください。

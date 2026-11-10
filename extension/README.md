@@ -24,13 +24,13 @@ If the extension was already loaded, click its reload button on `chrome://extens
 - Unresolved sources do not count as independent. Model suggestions are explicitly unverified. Distinct-origin verification records published methodology assertions, not a forensic audit of underlying participant data.
 - Google Search attribution is preserved in isolated frames. Website CSP restrictions may prevent a frame from rendering; verify on the actual demo sites before distribution.
 
-Keep Auto Scan off unless you deliberately want per-site automatic requests. It remains opt-in and limited to two claims per page load in the UI, which is not a billing cap. The local backend must remain running, and live requests can incur Google Cloud charges. Local development does not require a public cloud deployment.
+Checks start only when you explicitly submit highlighted or pasted text. The local backend must remain running, and live requests can incur Google Cloud charges. Local development does not require a public cloud deployment.
 
 ## Speed and privacy
 
 Claim extraction uses a lower-latency reasoning setting, backend model clients are reused, and the optional ambiguity-model pass is skipped when too few articles can be inspected. Grounded research and deterministic verification remain enabled. Simultaneous duplicate checks share a request; later checks perform fresh research. No persistent result cache was added. The displayed duration measures backend processing time; search and network latency vary.
 
-Automated fixture and broker tests do not verify installation in a real Chrome profile. Run an interactive selection/popup/Auto Scan check after loading the extension.
+Automated fixture and broker tests do not verify installation in a real Chrome profile. Run an interactive selection/popup check after loading the extension.
 
 ## Research unavailable versus connection issue
 
@@ -38,26 +38,20 @@ Automated fixture and broker tests do not verify installation in a real Chrome p
 
 **Connection issue** means the request could not reach the saved endpoint or exceeded its browser timeout. Confirm that the local backend is running and the saved URL is `http://127.0.0.1:8080`. After extension code changes, reload its card on `chrome://extensions` and refresh the article page.
 
-## What Auto Scan actually checks
+## Manual checks only
 
-Turn the per-site **Auto Scan** switch on in the popup while visiting an ordinary article page. It looks at up to 120 reading-oriented paragraph/list elements, heuristically selects up to two candidate sentences, and sends only those snippets for research when a backend is configured. English keyword/sentence heuristics miss many claims, especially text split across links, late-loading content and non-English articles. It is not a whole-page fact check or a background misinformation classifier.
-
-Temporary dotted markers identify candidates. Cited `contradicted` results become rose warnings and cited `needs_context` results become amber warnings. Supported results, missing citations and errors remove the markers. Clicking a retained warning opens its already fetched result; switching the site off removes its markers. Reloading the page permits another pair of checks and therefore can incur additional charges.
-
-Status messages now distinguish candidate absence, successful selected checks, insufficient evidence and failed requests. An empty page or “no warnings” does not prove the whole page accurate. Failed requests are shown as **Scan incomplete**.
+Auto Scan was removed in version 0.3.1. The extension does not inspect article paragraphs or start research when a page loads. Legacy per-site scanning preferences are ignored. Highlight a factual sentence or paste a claim in the popup to start research. Refresh existing tabs after updating so the old content script stops running.
 
 The optional localhost dashboard on port **5000** is a second frontend for pasted text, image uploads and inspecting raw API/graph results. The local API on port **8080** serves both clients and must keep running for the extension. You do not need to open the dashboard to use the extension.
 
 For provenance, expand **Source independence** to see each page's fetch status and failure reason. Grounding redirects may block automated retrieval; additional fetched publisher candidates are labeled separately and do not automatically count as independent. Zero inspected articles means article-level provenance was not checked; the factual assessment may still use Google grounding citations.
 
-For a reproducible manual Auto Scan demonstration with the existing local dashboard server, open `http://127.0.0.1:5000/sample-article.html`, enable Auto Scan for that site, and refresh. This is a copy of the repository’s labeled sample article, not a real publication. With a backend configured, its selected sentences receive real research calls; no live result is fabricated. Preview mode displays neutral candidate markers only.
-
 ## Shared release versus developer folder
 
 The source `extension/` folder keeps developer/preview defaults. A fresh Chrome profile does not inherit another profile's endpoint setting or session. For public users, distribute the artifact produced by `scripts/build_public.py` after the shared service is deployed; do not distribute the unconfigured developer folder and expect it to connect automatically.
 
-The release contains the approved shared API origin and a public Firebase Auth identifier, hides developer endpoint controls, and works without a local server. Users create/sign into SourceLens, verify their email and refresh the session. Their account does not grant access to the operator's Google Cloud project. Auto Scan choices stay off by default per site and profile. Sign-in tokens/email live only in trusted browser-session storage; passwords and results are not persisted. Closing the browser can require signing in again. Sign-out, verification resend, password reset and account deletion are available in the popup; deletion may require recent sign-in.
+The release contains the approved shared API origin and a public Firebase Auth identifier, hides developer endpoint controls, and works without a local server. Users create/sign into SourceLens, verify their email and refresh the session. Their account does not grant access to the operator's Google Cloud project. Research requires an explicit manual check. Sign-in tokens/email live only in trusted browser-session storage; passwords and results are not persisted. Closing the browser can require signing in again. Sign-out, verification resend, password reset and account deletion are available in the popup; deletion may require recent sign-in.
 
 The backend verifies project/signature/expiry, revocation and email status and enforces durable user/global quotas before research. Modifying the extension or calling the API directly cannot bypass those server checks. A packaged endpoint overrides old per-profile developer settings; tokens are never sent to a user-supplied endpoint override. A failed public configuration reports an error rather than silently returning a design-preview verdict.
 
-See [public beta deployment plan](../deployment/PUBLIC_BETA.md). A ZIP loaded through Developer mode is the initial beta distribution; Chrome Web Store submission and approval are separate. Provisioning and live multi-profile sign-in validation are still pending approval. Controlled fixtures verify these flows but do not claim that a public deployment is already running.
+See [public beta deployment plan](../deployment/PUBLIC_BETA.md). A ZIP loaded through Developer mode is the initial beta distribution; Chrome Web Store submission and approval are separate. The shared service is deployed. Controlled fixtures cover account handling; interactive multi-profile Chrome checks remain a manual QA step.

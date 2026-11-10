@@ -6,13 +6,13 @@ The owner approved provisioning and public deployment on 2026-11-10. The existin
 - Dashboard: https://saladmanderdevhacks.web.app/
 - API health through Hosting: https://saladmanderdevhacks.web.app/api/health
 - Direct backend: https://sourcelens-api-6gj6yd2pfq-an.a.run.app
-- Released package/build configuration: `build/public-100` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
+- Released package/build configuration: `build/public-manual-v0.3.1` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
 
 The first regional routing initialization took about ten minutes after the container became ready. Do not publish a new installation link until both the health check and a hosted signed request pass.
 
 ## What changes for users
 
-Users install a release package with the shared endpoint already configured, create a **SourceLens** email/password account, verify email, and check selected text. They do not install CLIs, authenticate to your cloud account, enter a project ID or run a server. Each Chrome profile has its own sign-in session; the service address is packaged rather than stored manually per profile. Auto Scan remains off by default for each site/profile.
+Users install a release package with the shared endpoint already configured, create a **SourceLens** email/password account, verify email, and check selected text. They do not install CLIs, authenticate to your cloud account, enter a project ID or run a server. Each Chrome profile has its own sign-in session; the service address is packaged rather than stored manually per profile. The current extension supports manual checks only; Auto Scan was removed in version 0.3.1.
 
 The initial distribution is a downloadable ZIP that users load unpacked. Chrome Web Store submission, developer-account review and publication remain separate approvals. Do not call this package a published store extension.
 
@@ -131,3 +131,12 @@ At the owner's request, the allowance was raised to **100 per verified account p
 Cloud Run revision `sourcelens-api-00003-zww` has both quota environment variables set to `100`, and Firebase Hosting was repinned to it. The install page, hosted ZIP and prepared GitHub release assets in `build/public-100/release-assets/` reflect the updated limits. Existing extensions inherit the new server-side allowance without reinstalling.
 
 64 backend tests and the structural smoke check passed. A temporary verified test account had only its own counter seeded to 99: its next hosted research request succeeded and returned `daily_limit: 100, remaining: 0`; the following request returned `429 DAILY_QUOTA_EXCEEDED`. The test account was deleted. No verification/reset emails were sent, real-user counters were untouched, and the shared counter was not reset. The downloaded hosted ZIP hash matched the generated artifact. This raises possible provider usage; request quotas do not establish a dollar spending cap.
+
+
+## Manual-only extension update — 2026-11-10
+
+At the owner’s request, version 0.3.1 removes Auto Scan’s popup controls, paragraph detection, automatic research requests, page markers, timers, storage listeners and scan notices. Legacy enabled-site preferences are ignored. Highlighted-text and pasted-claim checks, account handling, source provenance and the 100/100 server allowances remain available. Refresh article tabs after updating to stop an old content script. No backend deployment is needed for this frontend change.
+
+The current public build is `build/public-manual-v0.3.1`; GitHub assets are in its `release-assets/` directory and use tag proposal `v0.3.1-beta.1`. The previous quota-update build and earlier Auto Scan test results above are historical. Current extension tests cover absence of automatic requests even with legacy enabled preferences, manual checks/citations, provenance, account UI and synthetic-click guards.
+
+For this release, 23 extension tests, 18 backend public-access/package tests, TypeScript/JavaScript checks and the structural smoke check passed. The hosted ZIP was downloaded, hash-matched and inspected for version 0.3.1 and absence of the scanning controls/code. Hosted app/install/privacy/sample pages no longer advertise Auto Scan, and the authenticated backend health check passed. No live model calls were needed for this frontend-only change; interactive Chrome QA remains manual.

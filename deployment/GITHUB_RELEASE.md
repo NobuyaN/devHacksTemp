@@ -4,19 +4,19 @@ Submit a release URL from the hackathon's designated repository. The local check
 
 ## Prepared release
 
-- Proposed tag: `v0.3.0-beta.1` (Chrome manifest version `0.3.0`).
-- Title: `Mikata / SourceLens v0.3.0-beta.1`.
-- Notes: `docs/releases/v0.3.0-beta.1.md`.
-- Extension asset: `build/public-100/release-assets/mikata-extension-v0.3.0-beta.1.zip`.
-- Checksum asset: `build/public-100/release-assets/SHA256SUMS.txt`.
+- Proposed tag: `v0.3.1-beta.1` (Chrome manifest version `0.3.1`).
+- Title: `Mikata / SourceLens v0.3.1-beta.1`.
+- Notes: `docs/releases/v0.3.1-beta.1.md`.
+- Extension asset: `build/public-manual-v0.3.1/release-assets/mikata-extension-v0.3.1-beta.1.zip`.
+- Checksum asset: `build/public-manual-v0.3.1/release-assets/SHA256SUMS.txt`.
 
 Artifacts are generated and Git-ignored. A teammate can rebuild from the repository and the public Auth configuration described in `PUBLIC_BETA.md`:
 
 ```sh
-python3 scripts/build_public.py --config build/public-config.json --output build/public-100
-mkdir -p build/public-100/release-assets
-cp build/public-100/hosting/downloads/mikata-extension.zip build/public-100/release-assets/mikata-extension-v0.3.0-beta.1.zip
-(cd build/public-100/release-assets && shasum -a 256 mikata-extension-v0.3.0-beta.1.zip > SHA256SUMS.txt)
+python3 scripts/build_public.py --config build/public-config.json --output build/public-manual-v0.3.1
+mkdir -p build/public-manual-v0.3.1/release-assets
+cp build/public-manual-v0.3.1/hosting/downloads/mikata-extension.zip build/public-manual-v0.3.1/release-assets/mikata-extension-v0.3.1-beta.1.zip
+(cd build/public-manual-v0.3.1/release-assets && shasum -a 256 mikata-extension-v0.3.1-beta.1.zip > SHA256SUMS.txt)
 ```
 
 Choose a new empty output directory if it already exists. Never put backend credentials in the release. The Firebase Auth API identifier in the configured extension is intentionally public and restricted to Auth APIs.
@@ -25,7 +25,7 @@ Choose a new empty output directory if it already exists. Never put backend cred
 
 1. Confirm the submission repository and obtain approval to push and publish. Review staged changes for secrets.
 2. Push the reviewed feature branch without force. For this checkout: `git push origin feat/backend-source-verification`. Follow team review/merge requirements if the release must target the default branch.
-3. On GitHub, open that repository's **Releases → Draft a new release**. Create tag `v0.3.0-beta.1` targeting the pushed, reviewed commit/branch (or its merged commit), not an older default-branch snapshot.
+3. On GitHub, open that repository's **Releases → Draft a new release**. Create tag `v0.3.1-beta.1` targeting the pushed, reviewed commit/branch (or its merged commit), not an older default-branch snapshot.
 4. Set the title above and paste the release notes. Attach the configured extension ZIP and checksum file. Save a draft while checking the assets.
 5. Mark it a prerelease to reflect the beta status if the submission rules allow prereleases; otherwise follow the rules without hiding prototype limitations. Publish and submit the resulting release URL.
 

@@ -224,3 +224,14 @@ Public request processing duration includes server-side authentication and quota
 The approved Cloud Run backend and Firebase Hosting are deployed. Users install from https://saladmanderdevhacks.web.app/install.html and create a verified SourceLens account; no Google Cloud tools or local server are required. See [the deployment runbook](../deployment/PUBLIC_BETA.md) for rebuild/deploy commands and actual live validation. Public distribution is a ZIP for Load unpacked, not a Chrome Web Store listing.
 
 Publisher connections prefer checked public IPv4 addresses and try at most two checked addresses within the existing five-second deadline. This avoids selecting an unreachable IPv6 address first on Cloud Run. All DNS results must still be public; every redirect and robots policy is checked. No dependency or independence conclusion follows from reachability alone.
+
+
+## Recovery from transient Google research errors
+
+The deployed main model is `GEMINI_MODEL=gemini-3.5-flash`; `GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite` configures a second Gemini model for the existing single retry. The fallback is optional: omit/blank it to retry the main model as before. Use a model compatible with the request's Search grounding and thinking settings; the deployed pair was tested in this project. No competing LLM API or client API key is used.
+
+Extraction and grounded search retain their 10/22-second total stage budgets. With a fallback configured, the first call is capped at 6/14 seconds, leaving time for one delayed fallback attempt. HTTP 429/500/502/503/504 and transport timeouts are eligible; permanent permission/configuration errors are not retried. Retry-After and remaining stage time still gate retries. No extra attempt is added, so the existing model-attempt and server-side quota bounds remain. A fallback cannot guarantee recovery if both Google models are unavailable.
+
+Grounded research explicitly uses LOW thinking on the tested 3.5 Flash/Flash-Lite pair; extraction keeps its guarded MINIMAL setting. Source inspection, citation adequacy checks and deterministic independence rules are unchanged. A fallback response without adequate grounding remains insufficient evidence. Stage/model/attempt/status failures are logged without prompts, images, model response bodies, tokens or email. Exhausted transport deadlines return a sanitized `PROVIDER_UNAVAILABLE` with Retry-After.
+
+References: [Google API errors](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/api-errors), [thinking settings](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking).

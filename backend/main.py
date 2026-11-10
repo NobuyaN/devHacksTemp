@@ -11,6 +11,7 @@ from research import ResearchEngine
 from access import PublicAccess, AccessDenied
 from google.genai.errors import APIError
 from google.auth.exceptions import DefaultCredentialsError, RefreshError
+import httpx
 
 STATUS = {'SUPPORTED': 'supported', 'CONTRADICTED': 'contradicted', 'MIXED': 'needs_context',
           'INSUFFICIENT_EVIDENCE': 'insufficient_evidence', 'NOT_FACT_CHECKABLE': 'insufficient_evidence'}
@@ -156,6 +157,11 @@ def create_app(engine_factory=ResearchEngine, access_policy=None):
             return jsonify(payload)
         except (DefaultCredentialsError, RefreshError):
             return error('The research service could not authenticate to Google. Please contact the service owner.' if access.required else 'Google Cloud credentials are missing or expired. Run gcloud auth application-default login, then restart the backend.', 'CLOUD_AUTH_ERROR', 503)
+        except (httpx.TimeoutException, TimeoutError):
+            app.logger.warning('Vertex research deadline exceeded')
+            response, status = error('Google research took too long. Try a shorter factual sentence or try again shortly.', 'PROVIDER_UNAVAILABLE', 503)
+            response.headers['Retry-After'] = '30'
+            return response, status
         except APIError as exc:
             # Status-only logging avoids exposing prompts, tokens or provider response bodies.
             app.logger.warning('Vertex request failed: status=%s', exc.code)

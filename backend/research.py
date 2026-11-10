@@ -4,15 +4,18 @@ import os
 import re
 import random
 import time
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from collections import Counter
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
+import httpx
 from inspection import inspect_source, normalize_url, stable_id
 from dependencies import analyze_independence
 
 ASSESSMENTS = {'SUPPORTED', 'CONTRADICTED', 'MIXED', 'INSUFFICIENT_EVIDENCE', 'NOT_FACT_CHECKABLE'}
+LOGGER = logging.getLogger(__name__)
 
 
 def parse_json(text):
@@ -33,10 +36,14 @@ class ResearchEngine:
                                    http_options=types.HttpOptions(timeout=16000,
                                        retry_options=types.HttpRetryOptions(attempts=1)))
         self.model = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash')
+        self.fallback_model = os.getenv('GEMINI_FALLBACK_MODEL', '')
+        if self.fallback_model and not re.fullmatch(r'gemini-[a-z0-9.-]+', self.fallback_model):
+            raise ValueError('GEMINI_FALLBACK_MODEL must be a Gemini model ID')
 
     def _generate(self, *, stage, contents, config):
-        """One delayed retry for transient provider errors, within a stage wall-clock budget."""
+        """One delayed retry/fallback, sharing a fixed stage wall-clock budget."""
         budget = 10 if stage == 'extraction' else 22
+        fallback = getattr(self, 'fallback_model', '')
         deadline = time.monotonic() + budget
         last_error = None
         for attempt in range(2):
@@ -45,17 +52,23 @@ class ResearchEngine:
                 if last_error is not None:
                     raise last_error
                 raise TimeoutError('Research stage deadline exceeded')
+            # Reserve time for the faster fallback instead of spending the entire
+            # stage deadline on a stalled first call. No extra model attempt is added.
+            call_timeout = min(remaining, 6 if stage == 'extraction' else 14) if fallback and not attempt else remaining
+            model = fallback if attempt and fallback else self.model
             call_config = config.model_copy(update={'http_options': types.HttpOptions(
-                timeout=max(1, int(remaining * 1000)),
+                timeout=max(1, int(call_timeout * 1000)),
                 retry_options=types.HttpRetryOptions(attempts=1))})
             try:
-                return self.client.models.generate_content(model=self.model, contents=contents, config=call_config)
-            except APIError as exc:
+                return self.client.models.generate_content(model=model, contents=contents, config=call_config)
+            except (APIError, httpx.TimeoutException) as exc:
                 last_error = exc
-                if attempt or exc.code not in (429, 500, 502, 503, 504):
+                status = exc.code if isinstance(exc, APIError) else 504
+                LOGGER.warning('Vertex stage failed: stage=%s attempt=%s model=%s status=%s', stage, attempt+1, model, status)
+                if attempt or status not in (429, 500, 502, 503, 504):
                     raise
                 delay = 1 + random.uniform(0, 0.5)
-                header = (getattr(exc.response, 'headers', {}) or {}).get('Retry-After')
+                header = (getattr(getattr(exc, 'response', None), 'headers', {}) or {}).get('Retry-After')
                 if header:
                     try:
                         delay = max(delay, float(header))
@@ -105,7 +118,8 @@ class ResearchEngine:
                       'publicly accessible primary reports and original studies with citations. Do not use Google '
                       'redirect URLs for these candidates. Omit candidates if their exact URLs are unknown; never invent URLs. '
                       'A candidate is not a verified citation. Claim: ' + json.dumps(claim['text'])),
-            config=types.GenerateContentConfig(temperature=0, max_output_tokens=1800,
+                    config=types.GenerateContentConfig(temperature=0, max_output_tokens=1800,
+                    thinking_config=types.ThinkingConfig(thinking_level='LOW') if self.model in ('gemini-3.5-flash', 'gemini-3.5-flash-lite') else None,
                     tools=[types.Tool(google_search=types.GoogleSearch())]))
         candidates = response.candidates or []
         metadata = candidates[0].grounding_metadata if candidates else None

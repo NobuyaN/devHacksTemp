@@ -247,6 +247,42 @@ class ResearchTests(unittest.TestCase):
         sleep.assert_not_called()
         self.assertEqual(engine.client.models.generate_content.call_count, 1)
 
+    def test_transient_error_uses_configured_faster_gemini_fallback_with_same_budget(self):
+        from google.genai.errors import ServerError
+        engine=self.engine(None)
+        engine.model='gemini-3.5-flash'; engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=[ServerError(500,{'error':{'message':'Fixture failure'}}),NS(text='{"claims":[]}')]
+        with patch('research.time.sleep'), patch('research.time.monotonic',side_effect=[0,0,7,7]):
+            self.assertEqual(engine.extract(text='Fixture factual sentence.'),[])
+        calls=engine.client.models.generate_content.call_args_list
+        self.assertEqual([c.kwargs['model'] for c in calls],['gemini-3.5-flash','gemini-3.5-flash-lite'])
+        self.assertEqual(calls[0].kwargs['config'].http_options.timeout,6000)
+        self.assertEqual(calls[1].kwargs['config'].http_options.timeout,3000)
+
+    def test_transport_timeout_can_use_fallback(self):
+        import httpx
+        engine=self.engine(None); engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=[httpx.ReadTimeout('private transport details'),NS(text='{"claims":[]}')]
+        with patch('research.time.sleep'):
+            self.assertEqual(engine.extract(text='Fixture factual sentence.'),[])
+        self.assertEqual(engine.client.models.generate_content.call_count,2)
+
+    def test_configured_fallback_is_not_called_for_permanent_authentication_failure(self):
+        from google.genai.errors import ClientError
+        engine=self.engine(None); engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=ClientError(403,{'error':{'message':'Fixture denied'}})
+        with patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture factual sentence.')
+        self.assertEqual(engine.client.models.generate_content.call_count,1)
+        sleep.assert_not_called()
+
+    def test_grounding_timeout_reserves_time_for_fallback(self):
+        from google.genai import types
+        engine=self.engine(NS(text='fixture'))
+        engine.fallback_model='gemini-3.5-flash-lite'
+        engine._generate(stage='grounded_search',contents='Fixture',config=types.GenerateContentConfig())
+        self.assertEqual(engine.client.models.generate_content.call_args.kwargs['config'].http_options.timeout,14000)
+
     def test_persistent_capacity_error_stops_after_two_attempts(self):
         from google.genai.errors import ClientError
         engine = self.engine(None)
@@ -342,6 +378,15 @@ class APITests(unittest.TestCase):
             self.assertNotIn('private provider text', response.text)
             if provider_status != 400:
                 self.assertIn('Retry-After', response.headers)
+
+    def test_transport_timeout_returns_actionable_sanitized_retry_error(self):
+        import httpx
+        self.engine.extract.side_effect=httpx.ReadTimeout('private provider request details')
+        response=self.client.post('/check',json={'claim':'Fixture factual sentence.'})
+        self.assertEqual(response.status_code,503)
+        self.assertEqual(response.json['code'],'PROVIDER_UNAVAILABLE')
+        self.assertEqual(response.headers['Retry-After'],'30')
+        self.assertNotIn('private provider',response.text)
 
     def test_rate_limit(self):
         for _ in range(6): self.client.post('/check', json={'claim':'Fixture claim text'})

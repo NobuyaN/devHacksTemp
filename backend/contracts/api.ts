@@ -28,7 +28,7 @@ export interface IndependenceAnalysis {
   limitations: string[];
 }
 export interface FactCheckResult {
-  claim: Claim; assessment: Assessment; evidence_summary: string; explanation: string;
+  claim: Claim; assessment: Assessment; timings_ms: Record<string, number>; evidence_summary: string; explanation: string;
   sources: EvidenceSource[]; independence: IndependenceAnalysis;
   /** Original Vertex grounding metadata; retained indices refer to grounding_chunks. */
   grounding: { grounding_chunks?: unknown[]; grounding_supports?: unknown[];
@@ -36,7 +36,7 @@ export interface FactCheckResult {
   limitations: string[];
 }
 export interface CheckResponse {
-  schema_version: '1.0'; claims: Claim[]; results: FactCheckResult[];
+  schema_version: '1.0'; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
   status: 'supported' | 'contradicted' | 'needs_context' | 'insufficient_evidence';
   summary: string; detail: string; sources: EvidenceSource[];
 }

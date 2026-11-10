@@ -54,6 +54,8 @@ function demoResult(claim) {
   };
 }
 
+const pendingChecks = new Map();
+
 async function checkClaim(message) {
   const claim = String(message.claim || "").trim().slice(0, 1000);
   if (!claim) return { error: "Please select or paste a claim first." };
@@ -61,6 +63,15 @@ async function checkClaim(message) {
   const base = allowedApiBase(apiUrl);
   if (!base) return demoResult(claim);
 
+  const key = JSON.stringify([base, claim, String(message.sourceTitle || "").slice(0, 200)]);
+  if (pendingChecks.has(key)) return pendingChecks.get(key);
+  const pending = requestClaim(base, claim, message);
+  pendingChecks.set(key, pending);
+  try { return await pending; }
+  finally { pendingChecks.delete(key); }
+}
+
+async function requestClaim(base, claim, message) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 55000);
   try {
@@ -75,8 +86,8 @@ async function checkClaim(message) {
       }),
       signal: controller.signal
     });
-    if (!response.ok) throw new Error(`Backend returned HTTP ${response.status}`);
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Backend returned HTTP ${response.status}`);
     if (!ALLOWED_STATUSES.has(data.status) || typeof data.summary !== "string") {
       throw new Error("The backend returned an unexpected result.");
     }
@@ -89,6 +100,7 @@ async function checkClaim(message) {
         catch (_) { return false; }
       }).map(s => ({ title: s.title.slice(0, 120), url: s.url })) : [],
       results: Array.isArray(data.results) ? data.results : [],
+      processing_ms: typeof data.processing_ms === "number" ? data.processing_ms : null,
       demo: false
     };
   } catch (error) {

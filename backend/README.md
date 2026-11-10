@@ -68,10 +68,12 @@ Response shape (illustrative schema example, **not a live verified result**):
 ```json
 {
   "schema_version": "1.0",
+  "processing_ms": 0,
   "claims": [{"id":"stable-id","text":"Example proposition","checkable":true,"reason":"Factual statement"}],
   "results": [{
     "claim": {"id":"stable-id","text":"Example proposition","checkable":true,"reason":"Factual statement"},
     "assessment":"INSUFFICIENT_EVIDENCE",
+    "timings_ms": {},
     "evidence_summary":"Adequately attributed evidence was not returned.",
     "explanation":"Grounded citations and relevant support are required.",
     "sources": [],
@@ -203,3 +205,19 @@ Verify the actual published dashboard by submitting a low-cost test, inspecting 
 ## Model availability troubleshooting
 
 The original starter used `gemini-2.5-flash`, which returned Vertex 404 in this project. The default and examples now use `gemini-3.5-flash`; a controlled live extraction was verified against this project. An existing `GEMINI_MODEL` environment variable overrides the default, so export the replacement and restart an already running backend. See [Google model lifecycle](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/model-versions). `MODEL_UNAVAILABLE` and `CLOUD_AUTH_ERROR` distinguish model/access failures without exposing provider bodies, tokens or input text.
+
+## Extension-first use and latency
+
+The Chrome extension is a direct client of `/check` and does not need the dashboard. Follow [extension/README.md](../extension/README.md) to load it unpacked and set `http://127.0.0.1:8080` as the local endpoint. Keep the API running. The sidebar preserves the existing design and adds collapsible provenance details, per-claim results for multi-claim selections, confirmed edge quotes/links, unresolved source counts and explicitly unverified model suggestions.
+
+Latency improvements retain the grounded search, article inspection limits and deterministic verifier:
+
+- Claim extraction uses `MINIMAL` thinking only for the known-compatible `gemini-3.5-flash`; grounded factual research retains its model reasoning configuration. Other model overrides retain their default extraction configuration.
+- The optional relationship interpretation call is skipped unless at least two sources were successfully inspected. Failed pages provide no article text to interpret. Deterministic provenance still runs in all cases.
+- At most two initialized Vertex clients are reused through an idle pool, avoiding fresh client/auth/connection setup on every request. Each active request borrows its own client; this stores no claim results.
+- Simultaneous identical extension requests share one pending HTTP request. Once completed, the pending entry is removed; later checks run fresh research. There is no result cache or persistence of selections.
+- The response includes `processing_ms`, and each result includes `timings_ms` for grounded search, source inspection and provenance analysis. The extension shows backend processing duration after completion. These timings are measurements, not guarantees of later performance.
+
+Search/provider latency and accessible-site response times still vary. Fewer independent sources are never invented to make a response appear faster. Google documents thinking-level latency tradeoffs in its [Gemini 3.5 Flash guide](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-5-flash).
+
+A controlled local `/check` request after these changes completed in 11,808 ms with six grounding source URLs (grounded search 7,863 ms, source inspection 1,325 ms). This single observation is not a latency guarantee or verification-accuracy benchmark; inaccessible articles remain unresolved.

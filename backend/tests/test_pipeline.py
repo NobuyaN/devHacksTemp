@@ -143,6 +143,23 @@ class ResearchTests(unittest.TestCase):
         self.assertIn('search_entry_point', grounding)
         self.assertEqual(assessment['assessment'], 'SUPPORTED')
 
+    def test_uninspected_sources_skip_optional_model_interpretation(self):
+        sources = [dict(id=x, url=f'https://{x}.example/', inspection_status='unverified', citations=[]) for x in ('a','b')]
+        graph = analyze_independence(sources)
+        engine = self.engine(None)
+        engine.interpret_unresolved(sources, graph)
+        engine.client.models.generate_content.assert_not_called()
+        self.assertEqual(graph['confirmed_distinct_evidence_origins'], 0)
+
+    def test_extraction_uses_minimal_thinking_only_for_compatible_model(self):
+        engine = self.engine(NS(text='{"claims":[]}'))
+        engine.model = 'gemini-3.5-flash'
+        engine.extract(text='A fixture sentence.')
+        self.assertEqual(engine.client.models.generate_content.call_args.kwargs['config'].thinking_config.thinking_level, 'MINIMAL')
+        engine.model = 'gemini-3.8-flash'
+        engine.extract(text='A fixture sentence.')
+        self.assertIsNone(engine.client.models.generate_content.call_args.kwargs['config'].thinking_config)
+
     def test_opinion_skips_search(self):
         engine = self.engine(None)
         self.assertEqual(engine.check([claim(checkable=False)])[0]['assessment'], 'NOT_FACT_CHECKABLE')
@@ -204,6 +221,17 @@ class APITests(unittest.TestCase):
         response = self.client.post('/check', json={'claim':'Fixture claim text'})
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response.headers['Retry-After'], '60')
+
+    def test_sequential_requests_reuse_idle_client_without_caching_results(self):
+        factory = Mock(return_value=self.engine)
+        client = create_app(factory).test_client()
+        for _ in range(2):
+            response = client.post('/check', json={'claim':'Fixture claim text'})
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(response.json['processing_ms'], 0)
+        factory.assert_called_once()
+        self.assertEqual(self.engine.extract.call_count, 2)
+        self.assertEqual(self.engine.check.call_count, 2)
 
     def test_health(self):
         self.assertEqual(self.client.get('/api/health').status_code, 200)

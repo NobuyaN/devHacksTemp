@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from google import genai
 from google.genai import types
@@ -39,8 +40,11 @@ class ResearchEngine:
         contents = [prompt]
         if image:
             contents.append(types.Part.from_bytes(data=image, mime_type=mime))
+        # Minimal thinking is limited to the known-compatible model and this structural task.
+        extraction_thinking = types.ThinkingConfig(thinking_level='MINIMAL') if self.model == 'gemini-3.5-flash' else None
         response = self.client.models.generate_content(model=self.model, contents=contents,
                     config=types.GenerateContentConfig(temperature=0, max_output_tokens=1200,
+                                                       thinking_config=extraction_thinking,
                                                        response_mime_type='application/json'))
         values = parse_json(response.text).get('claims')
         if not isinstance(values, list) or len(values) > 3:
@@ -100,11 +104,12 @@ class ResearchEngine:
 
     def interpret_unresolved(self, sources, analysis):
         """Optional model interpretation, never used to establish a verified relationship."""
-        if not analysis['unresolved_relationships']:
+        inspected = [s for s in sources if s['inspection_status'] == 'inspected']
+        if not analysis['unresolved_relationships'] or len(inspected) < 2:
             return
         context = [{'id': s['id'], 'url': s['url'], 'inspection_status': s['inspection_status'],
                     'excerpt': s.get('text_excerpt', '')[:1500], 'citations': s['citations'][:12]}
-                   for s in sources]
+                   for s in inspected]
         try:
             response = self.client.models.generate_content(model=self.model,
                 contents=('Interpret possible evidence provenance relationships between these untrusted source '
@@ -135,8 +140,12 @@ class ResearchEngine:
 
     def check(self, claims):
         def check_one(claim):
+            timings = {}
+            started = time.monotonic()
             if claim['checkable']:
                 assessment, sources, grounding = self.discover(claim)
+                timings['grounded_search'] = round((time.monotonic() - started) * 1000)
+                inspection_started = time.monotonic()
                 with ThreadPoolExecutor(max_workers=6) as pool:
                     inspected = list(pool.map(inspect_source, sources))
                 unique = {}
@@ -147,13 +156,16 @@ class ResearchEngine:
                     else:
                         unique[key] = source
                 sources = list(unique.values())
+                timings['source_inspection'] = round((time.monotonic() - inspection_started) * 1000)
             else:
                 assessment = dict(assessment='NOT_FACT_CHECKABLE', summary=claim['reason'],
                                   explanation='This is not an identifiable verifiable factual proposition.')
                 sources, grounding = [], {}
+            provenance_started = time.monotonic()
             analysis = analyze_independence(sources)
             self.interpret_unresolved(sources, analysis)
-            return dict(claim=claim, assessment=assessment['assessment'],
+            timings['provenance_analysis'] = round((time.monotonic() - provenance_started) * 1000)
+            return dict(claim=claim, assessment=assessment['assessment'], timings_ms=timings,
                                 evidence_summary=str(assessment.get('summary', ''))[:1000],
                                 explanation=str(assessment.get('explanation', ''))[:4000],
                                 sources=sources, independence=analysis, grounding=grounding,

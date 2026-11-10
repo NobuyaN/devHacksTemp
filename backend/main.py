@@ -20,6 +20,7 @@ def create_app(engine_factory=ResearchEngine):
     app.config['MAX_CONTENT_LENGTH'] = 6 * 1024 * 1024
     buckets, lock = OrderedDict(), threading.Lock()
     slots = threading.BoundedSemaphore(2)
+    idle_engines = []
 
     def error(message, code, status):
         return jsonify(error=message, code=code), status
@@ -102,11 +103,17 @@ def create_app(engine_factory=ResearchEngine):
                 return error('source_title must be at most 200 characters.', 'INVALID_INPUT', 400)
         if not slots.acquire(blocking=False):
             return error('Server is busy.', 'BUSY', 503)
+        started = time.monotonic()
+        engine = None
         try:
-            engine = engine_factory()
+            with lock:
+                engine = idle_engines.pop() if idle_engines else None
+            if engine is None:
+                engine = engine_factory()
             claims = engine.extract(text=text, image=image, mime=mime)
             results = engine.check(claims)
-            payload = dict(results=results, claims=claims, schema_version='1.0')
+            payload = dict(results=results, claims=claims, schema_version='1.0',
+                           processing_ms=round((time.monotonic() - started) * 1000))
             # Legacy fields deliberately remain neutral for multi-claim input.
             if len(results) == 1:
                 r = results[0]
@@ -130,6 +137,9 @@ def create_app(engine_factory=ResearchEngine):
             app.logger.warning('Research failed: exception_type=%s', type(exc).__name__)
             return error('Live research is unavailable or timed out. Try again later.', 'RESEARCH_UNAVAILABLE', 503)
         finally:
+            if engine is not None:
+                with lock:
+                    idle_engines.append(engine)
             slots.release()
 
     return app

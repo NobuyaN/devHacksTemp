@@ -54,6 +54,8 @@ function demoResult(claim) {
   };
 }
 
+const pendingChecks = new Map();
+
 async function checkClaim(message) {
   const claim = String(message.claim || "").trim().slice(0, 1000);
   if (!claim) return { error: "Please select or paste a claim first." };
@@ -61,8 +63,17 @@ async function checkClaim(message) {
   const base = allowedApiBase(apiUrl);
   if (!base) return demoResult(claim);
 
+  const key = JSON.stringify([base, claim, String(message.sourceTitle || "").slice(0, 200)]);
+  if (pendingChecks.has(key)) return pendingChecks.get(key);
+  const pending = requestClaim(base, claim, message);
+  pendingChecks.set(key, pending);
+  try { return await pending; }
+  finally { pendingChecks.delete(key); }
+}
+
+async function requestClaim(base, claim, message) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 55000);
   try {
     const response = await fetch(`${base}/check`, {
       method: "POST",
@@ -75,8 +86,12 @@ async function checkClaim(message) {
       }),
       signal: controller.signal
     });
-    if (!response.ok) throw new Error(`Backend returned HTTP ${response.status}`);
     const data = await response.json();
+    if (!response.ok) return {
+      error: data.error || `Backend returned HTTP ${response.status}`,
+      code: typeof data.code === "string" ? data.code : "BACKEND_ERROR",
+      retryable: ["PROVIDER_RATE_LIMITED", "PROVIDER_UNAVAILABLE", "BUSY", "RATE_LIMITED"].includes(data.code)
+    };
     if (!ALLOWED_STATUSES.has(data.status) || typeof data.summary !== "string") {
       throw new Error("The backend returned an unexpected result.");
     }
@@ -88,10 +103,15 @@ async function checkClaim(message) {
         try { return s && new URL(s.url).protocol === "https:" && typeof s.title === "string"; }
         catch (_) { return false; }
       }).map(s => ({ title: s.title.slice(0, 120), url: s.url })) : [],
+      results: Array.isArray(data.results) ? data.results : [],
+      processing_ms: typeof data.processing_ms === "number" ? data.processing_ms : null,
       demo: false
     };
   } catch (error) {
-    return { error: error.name === "AbortError" ? "The check took too long. Please try again." : `Couldn't connect to your backend. ${error.message}` };
+    return {
+      error: error.name === "AbortError" ? "The check took too long. Please try again." : `Couldn't connect to your backend. ${error.message}`,
+      code: error.name === "AbortError" ? "REQUEST_TIMEOUT" : "NETWORK_ERROR"
+    };
   } finally { clearTimeout(timer); }
 }
 

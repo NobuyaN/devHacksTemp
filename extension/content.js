@@ -124,17 +124,81 @@
     $("mk-no-sources").hidden = list.childElementCount > 0;
   }
 
+  function renderProvenance(results) {
+    root.querySelector("#mk-provenance")?.remove();
+    if (!Array.isArray(results) || !results.length) return;
+    const section = document.createElement("div");
+    section.id = "mk-provenance";
+    const add = (tag, text, parent = section) => {
+      const element = document.createElement(tag);
+      element.textContent = text;
+      parent.append(element);
+      return element;
+    };
+    const link = (parent, text, url) => {
+      try {
+        if (new URL(url).protocol !== "https:") return;
+        const anchor = add("a", text, parent);
+        anchor.href = url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+        anchor.className = "mk-source-link";
+      } catch (_) { /* invalid citation omitted */ }
+    };
+    for (const result of results) {
+      const details = add("details", "");
+      details.className = "mk-card";
+      add("summary", results.length > 1 ? result.claim?.text || "Extracted claim" : "Source independence", details);
+      if (results.length > 1) {
+        add("p", `${result.assessment || "INSUFFICIENT_EVIDENCE"}: ${result.evidence_summary || ""}`, details);
+        for (const source of result.sources || []) link(details, source.title, source.url);
+      }
+      const graph = result.independence;
+      if (!graph) continue;
+      add("p", `${graph.total_articles_inspected || 0} articles inspected. ${graph.confirmed_distinct_evidence_origins || 0} confirmed distinct evidence origins. ${(graph.sources_with_unresolved_independence || []).length} sources with unresolved independence.`, details);
+      add("p", "Unresolved sources do not count as independent. Published methodology statements are not a raw-data audit.", details);
+      for (const edge of graph.dependencies || []) {
+        const relationship = add("details", "", details);
+        add("summary", `${edge.relationship_type.replaceAll("_", " ")} · ${edge.verification_status}`, relationship);
+        add("p", edge.evidence, relationship);
+        link(relationship, "Inspect supporting source ↗", edge.supporting_source_url);
+        link(relationship, "Referenced source ↗", edge.target_url);
+      }
+      for (const relationship of graph.unresolved_relationships || []) {
+        if (relationship.model_hypothesis) add("p", `Unverified model suggestion: ${relationship.model_hypothesis}`, details);
+      }
+    }
+    $("mk-sources").after(section);
+  }
+
   function showCheckResult(result) {
     if (!result || result.error) {
-      setStatus("error", result?.error || "Please refresh this page and try again.", "Check your Cloud Run connection in Mikata's toolbar popup.");
-      $("mk-mode").textContent = "Connection issue";
+      const reachedBackend = result?.code && !["NETWORK_ERROR", "REQUEST_TIMEOUT"].includes(result.code);
+      setStatus("error", result?.error || "Please refresh this page and try again.", reachedBackend
+        ? "The extension reached your backend, but the research could not finish."
+        : "Check that your backend is running and its saved endpoint is correct.");
+      $("mk-mode").textContent = reachedBackend ? "Research unavailable" : "Connection issue";
       $("mk-no-sources").textContent = "No evidence was retrieved.";
       return;
     }
     $("mk-mode").textContent = result.demo ? "✦ Design preview · not verified" : "✿ Live AI-assisted assessment";
     $("mk-mode").classList.toggle("is-live", !result.demo);
+    if (!result.demo && Number.isFinite(result.processing_ms)) $("mk-mode").textContent += ` · ${(result.processing_ms / 1000).toFixed(1)}s`;
     setStatus(result.status, result.summary, result.detail);
     renderSources(result.sources);
+    renderProvenance(result.results);
+    document.getElementById("mk-search-attribution")?.remove();
+    const attribution = document.createElement("div");
+    attribution.id = "mk-search-attribution";
+    for (const item of result.results || []) {
+      const html = item.grounding?.search_entry_point?.rendered_content;
+      if (typeof html !== "string" || !html) continue;
+      const frame = document.createElement("iframe");
+      frame.title = "Google Search suggestions";
+      frame.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+      frame.style.cssText = "width:100%;min-height:180px;border:0";
+      frame.srcdoc = html;
+      attribution.appendChild(frame);
+    }
+    $("mk-sources").after(attribution);
     if (result.demo) $("mk-no-sources").textContent = "Preview only. Connect a Cloud Run backend to check claims and retrieve sources.";
     else if (!result.sources?.length) $("mk-no-sources").textContent = "No cited sources returned. This claim is not verified.";
   }
@@ -152,6 +216,8 @@
     $("mk-mode").classList.remove("is-live");
     setStatus("insufficient_evidence", "Gathering the context...", "Mikata is preparing your result.");
     renderSources([]);
+    renderProvenance([]);
+    root.querySelector("#mk-search-attribution")?.remove();
     $("mk-no-sources").textContent = "Sources appear here when a live check finds them.";
     $("mk-retry").disabled = true;
     try {

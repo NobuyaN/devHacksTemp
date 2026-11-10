@@ -36,3 +36,9 @@
   ## ライセンス
 
   [MIT License](LICENSE) です。ほかのライセンスにしたいときは、LICENSE を書き換えてください。
+
+## SourceLens backend implementation
+
+The backend now includes structured multi-claim and image research, deterministic source-dependency analysis, safe article inspection, and an additive `/check` compatibility response. The separate dashboard and Firebase rewrite configuration are under `landing/` and `firebase.json`.
+
+See [backend/README.md](backend/README.md) for exact setup, test, API and deployment commands, IAM prerequisites and current verification limits. Existing instructions and design-preview behavior still apply. Cloud deployment and live validation are pending; fixture tests are not live verified fact checks.

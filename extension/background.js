@@ -1,4 +1,4 @@
-if (typeof importScripts === "function") importScripts("config.js", "auth.js");
+if (typeof importScripts === "function") importScripts("config.js", "i18n.js", "auth.js");
 const publicConfig = globalThis.SOURCELENS_CONFIG || {};
 // TEAM HANDOFF — request broker. No AI keys/secrets belong in an extension package.
 // TODO(API / teammate): Add health checks, better request error UX and automated tests.
@@ -60,15 +60,18 @@ function demoResult(claim) {
 const pendingChecks = new Map();
 
 async function checkClaim(message) {
+  await globalThis.MikataI18n.ready;
+  const language = ["en", "ja"].includes(message.language) ? message.language : globalThis.MikataI18n.language;
+  message = { ...message, language };
   const claim = String(message.claim || "").trim().slice(0, 1000);
   if (!claim) return { error: "Please select or paste a claim first." };
   const { apiUrl = "" } = await chrome.storage.local.get("apiUrl");
   const base = allowedApiBase(publicConfig.authRequired ? publicConfig.apiOrigin : apiUrl || publicConfig.apiOrigin);
   if (!base) return publicConfig.authRequired
     ? { error: "The shared service has not been configured. Contact the service owner.", code: "SERVICE_NOT_CONFIGURED", backend_reached: false }
-    : demoResult(claim);
+    : { ...demoResult(claim), language };
 
-  const key = JSON.stringify([base, claim, String(message.sourceTitle || "").slice(0, 200)]);
+  const key = JSON.stringify([base, claim, String(message.sourceTitle || "").slice(0, 200), language]);
   if (pendingChecks.has(key)) return pendingChecks.get(key);
   const pending = requestClaim(base, claim, message);
   pendingChecks.set(key, pending);
@@ -94,7 +97,7 @@ async function requestClaim(base, claim, message) {
       method: "POST",
       headers,
       body: JSON.stringify({
-        claim,
+        claim, language: message.language,
         // We intentionally DO NOT transmit the full page URL: it may contain
         // private tokens or query parameters, and the backend doesn't use it.
         source_title: String(message.sourceTitle || "").slice(0, 200)
@@ -111,6 +114,7 @@ async function requestClaim(base, claim, message) {
       throw new Error("The backend returned an unexpected result.");
     }
     return {
+      language: data.language || message.language,
       status: data.status,
       summary: data.summary.slice(0, 500),
       detail: typeof data.detail === "string" ? data.detail.slice(0, 1600) : "",

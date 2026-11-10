@@ -1,4 +1,7 @@
 /** Wire contracts for /api/check and /api/analyze-image; extension legacy fields remain additive. */
+export type Language = 'en' | 'ja';
+export interface CheckRequest { claim?: string; text?: string; source_title?: string; language?: Language }
+export interface AnalyzeImageRequest { image_base64: string; mime_type: 'image/png' | 'image/jpeg' | 'image/webp'; language?: Language }
 export type Assessment = 'SUPPORTED' | 'CONTRADICTED' | 'MIXED' | 'INSUFFICIENT_EVIDENCE' | 'NOT_FACT_CHECKABLE';
 export interface Claim { id: string; text: string; checkable: boolean; reason: string }
 export interface Citation { url: string; excerpt: string; attributed: boolean; syndicated: boolean; context_sentence: string }
@@ -38,7 +41,7 @@ export interface FactCheckResult {
   limitations: string[];
 }
 export interface CheckResponse {
-  schema_version: '1.0'; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
+  schema_version: '1.0'; language?: Language; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
   quota?: { daily_limit: number; remaining: number; resets_at: string };
   status: 'supported' | 'contradicted' | 'needs_context' | 'insufficient_evidence';
   summary: string; detail: string; sources: EvidenceSource[];

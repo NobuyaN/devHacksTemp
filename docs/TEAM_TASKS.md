@@ -51,3 +51,8 @@ Auto Scan was removed at the owner’s request. The current extension checks onl
 ## Branding update — 0.3.2
 
 The user-facing app name is Mikata throughout the extension, dashboard and release notes. Cloud resources and internal session identifiers keep their existing IDs. Current judge instructions: `docs/releases/v0.3.2-beta.1.md`.
+
+
+## Language switch — 0.4.0
+
+English / 日本語 controls are available in the popup, sidebar and dashboard. Preferences are saved locally; switching the UI does not start research. New checks request explanations in the chosen language. Existing result text and original citations/quotes stay unchanged. Current judge instructions: `docs/releases/v0.4.0-beta.1.md`.

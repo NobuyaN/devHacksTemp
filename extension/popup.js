@@ -5,12 +5,22 @@
 
 const $ = id => document.getElementById(id);
 const publicConfig = globalThis.SOURCELENS_CONFIG || {};
+const I = globalThis.MikataI18n;
+const tr = (key, values) => I.t(key, values);
+I.mountSwitch($("language-control"));
+I.bind(document.documentElement);
+let accountState = null;
+let lastMessage = "";
+I.onChange(() => { updateMode($("api-url").value); if (accountState) renderAccount(accountState); setMessage(lastMessage); });
+
 const sample = "Electric vehicles produce zero emissions.";
 
-function setMessage(message) { $("message").textContent = message || ""; }
+function setMessage(message) { lastMessage = message; $("message").textContent = tr(message || ""); }
 
 async function sendToPage(message) {
   try {
+    await I.ready;
+    message = { ...message, language: I.language };
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error("No webpage is active.");
     const response = await chrome.tabs.sendMessage(tab.id, message);
@@ -43,7 +53,7 @@ function validUrl(value) {
 
 function updateMode(url) {
   const pill = $("mode-pill");
-  pill.textContent = publicConfig.authRequired ? "✿ Shared Mikata service" : url ? "✿ Connected to your backend" : "✦ Design preview mode";
+  pill.textContent = tr(publicConfig.authRequired ? "✿ Shared Mikata service" : url ? "✿ Connected to your backend" : "✦ Design preview mode");
   pill.classList.toggle("live", Boolean(url));
 }
 
@@ -87,13 +97,14 @@ async function accountAction(type) {
 }
 
 function renderAccount(state) {
+  accountState = state;
   $("account-form").hidden = state.signedIn;
   $("account-session").hidden = !state.signedIn;
   $("account-refresh").hidden = state.emailVerified;
   $("account-verify").hidden = state.emailVerified;
   $("account-status").textContent = state.signedIn
-    ? (state.emailVerified ? `Signed in as ${state.email}. Refresh the article to start checking.` : `Verify the email sent to ${state.email}, then click Refresh.`)
-    : "Sign in or create a Mikata account to check claims.";
+    ? (state.emailVerified ? tr("Signed in as {email}. Refresh the article to start checking.", {email: state.email}) : tr("Verify the email sent to {email}, then click Refresh.", {email: state.email}))
+    : tr("Sign in or create a Mikata account to check claims.");
 }
 if (publicConfig.authRequired) {
   $("account-panel").hidden = false;
@@ -114,5 +125,5 @@ $("account-reset").addEventListener("click", () => {
   accountAction("MIKATA_AUTH_RESET").then(() => setMessage("If this account exists, a password reset email will be sent.")).catch(error => setMessage(error.message));
 });
 $("account-delete").addEventListener("click", () => {
-  if (confirm("Delete your Mikata account? This cannot be undone. Usage counters expire separately after their retention period.")) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
+  if (confirm(tr("Delete your Mikata account? This cannot be undone. Usage counters expire separately after their retention period."))) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
 });

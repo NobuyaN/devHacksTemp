@@ -235,3 +235,14 @@ Extraction and grounded search retain their 10/22-second total stage budgets. Wi
 Grounded research explicitly uses LOW thinking on the tested 3.5 Flash/Flash-Lite pair; extraction keeps its guarded MINIMAL setting. Source inspection, citation adequacy checks and deterministic independence rules are unchanged. A fallback response without adequate grounding remains insufficient evidence. Stage/model/attempt/status failures are logged without prompts, images, model response bodies, tokens or email. Exhausted transport deadlines return a sanitized `PROVIDER_UNAVAILABLE` with Retry-After.
 
 References: [Google API errors](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/api-errors), [thinking settings](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking).
+
+
+## English and Japanese output
+
+`POST /api/check`, `/check` and `/api/analyze-image` accept optional `"language": "en" | "ja"`; omitted language defaults to English. Unsupported values return 400 before quota reservation or model calls. The response echoes `language`, while assessment enums, relationship types, identifiers, original citations and the schema version remain unchanged. Extraction reasons and research summaries/explanations request the chosen language; original claim text and evidence quotes are preserved. Deterministic error codes and raw provenance metadata retain their wire format. No translation provider, extra model stage or additional research attempt was introduced.
+
+```json
+{"claim":"地球は太陽の周りを公転しています。","language":"ja"}
+```
+
+The bundled UI localization helper is canonical in `extension/i18n.js`, with a checked identical mirror in `landing/i18n.js` for build-free local development. Update both together (`cp extension/i18n.js landing/i18n.js`). Release packaging always copies the canonical helper. Extension language choices use `chrome.storage.local.mikataLanguage`; dashboard choices use origin-local storage. Account tokens remain in session storage.

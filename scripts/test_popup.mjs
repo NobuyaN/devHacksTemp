@@ -1,3 +1,4 @@
+const i18nCode = readFileSync(new URL('../extension/i18n.js', import.meta.url), 'utf8');
 // Real popup DOM with mocked Chrome account messages; no credentials/network.
 import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ test('fresh public profile gets sign-in UI and pinned service, not endpoint conf
     calls.push(message);
     return message.type==='MIKATA_AUTH_SIGN_UP' ? {signedIn:true,email:'user@example.test',emailVerified:false,verificationSent:true} : {signedIn:false};
   }}};
-  w.eval(code);const get=id=>w.document.getElementById(id);
+  w.eval(i18nCode);w.eval(code);const get=id=>w.document.getElementById(id);
   await until(()=>get('settings').hidden && /Create|create/.test(get('account-status').textContent));
   assert.equal(get('account-panel').hidden,false);
   assert.equal(get('auto-toggle'),null);
@@ -27,4 +28,11 @@ test('fresh public profile gets sign-in UI and pinned service, not endpoint conf
   assert.match(get('account-status').textContent,/Verify the email/);
   assert.equal(get('account-password').value,'');
   assert.equal(calls[1].type,'MIKATA_AUTH_SIGN_UP');
+  await w.MikataI18n.setLanguage('ja');
+  assert.equal(w.document.documentElement.lang,'ja');
+  assert.match(get('account-status').textContent,/認証/);
+  assert.equal(get('account-create').textContent,'アカウント作成');
+  await w.MikataI18n.setLanguage('en');
+  assert.equal(get('account-create').textContent,'Create account');
+  assert.match(get('account-status').textContent,/Verify the email/);
 });

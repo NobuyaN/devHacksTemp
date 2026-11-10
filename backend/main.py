@@ -98,6 +98,9 @@ def create_app(engine_factory=ResearchEngine, access_policy=None):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return error('Expected a JSON object.', 'INVALID_INPUT', 400)
+        language = data.get('language', 'en')
+        if language not in ('en', 'ja'):
+            return error('language must be en or ja.', 'INVALID_INPUT', 400)
         text, image, mime = None, None, None
         if request.path.endswith('analyze-image'):
             mime = data.get('mime_type')
@@ -140,9 +143,9 @@ def create_app(engine_factory=ResearchEngine, access_policy=None):
                 engine = idle_engines.pop() if idle_engines else None
             if engine is None:
                 engine = engine_factory()
-            claims = engine.extract(text=text, image=image, mime=mime)
-            results = engine.check(claims)
-            payload = dict(results=results, claims=claims, schema_version='1.0',
+            claims = engine.extract(text=text, image=image, mime=mime, language=language)
+            results = engine.check(claims, language=language)
+            payload = dict(results=results, claims=claims, schema_version='1.0', language=language,
                            processing_ms=round((time.monotonic() - started) * 1000))
             if quota is not None:
                 payload['quota'] = quota
@@ -152,8 +155,8 @@ def create_app(engine_factory=ResearchEngine, access_policy=None):
                 payload.update(status=STATUS[r['assessment']], summary=r['evidence_summary'],
                                detail=r['explanation'], sources=[s for s in r['sources'] if s.get('discovery_method') != 'research_candidate'])
             else:
-                payload.update(status='insufficient_evidence', summary='Review each extracted claim separately.',
-                               detail='No aggregate factual verdict is assigned.', sources=[])
+                payload.update(status='insufficient_evidence', summary='抽出された主張を個別に確認してください。' if language == 'ja' else 'Review each extracted claim separately.',
+                               detail='複数の主張に対して、まとめた真偽の判定は行いません。' if language == 'ja' else 'No aggregate factual verdict is assigned.', sources=[])
             return jsonify(payload)
         except (DefaultCredentialsError, RefreshError):
             return error('The research service could not authenticate to Google. Please contact the service owner.' if access.required else 'Google Cloud credentials are missing or expired. Run gcloud auth application-default login, then restart the backend.', 'CLOUD_AUTH_ERROR', 503)

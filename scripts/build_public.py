@@ -47,7 +47,7 @@ def build(config, output):
     hosting.mkdir()
     for source in (ROOT/'extension').rglob('*'):
         relative = source.relative_to(ROOT/'extension')
-        root_files = {'manifest.json','config.js','auth.js','background.js','content.js','content.css','popup.html','popup.css','popup.js','README.md'}
+        root_files = {'manifest.json','config.js','i18n.js','auth.js','background.js','content.js','content.css','popup.html','popup.css','popup.js','README.md'}
         asset = relative.parts[0] in ('icons','assets') and source.suffix.lower() in ('.png','.svg','.jpg','.jpeg','.webp','.ico','.gif')
         if source.is_file() and not source.is_symlink() and (str(relative) in root_files or asset):
             target = extension/source.relative_to(ROOT/'extension')
@@ -67,7 +67,7 @@ def build(config, output):
 5. Refresh an ordinary article page, select a factual sentence, and click Check with mikata.
 
 No local server, CLI, Google Cloud account, or project ID is required.
-Each Chrome profile signs in separately. Checks start only when you explicitly submit a claim.
+Each Chrome profile signs in separately. Choose English or 日本語 in the popup or sidebar; the preference is saved for that profile. Switching languages does not start research. New checks request explanations in the selected language; existing results keep their original text. Checks start only when you explicitly submit a claim.
 Beta limits: 100 research requests per verified account per UTC day, subject to a shared 100-request daily allowance. Failed reserved research can count.
 
 The factual verdict and source independence are separate. Blocked or inaccessible sources remain unresolved; different domains do not prove independence. This prototype does not guarantee truth or general independence verification.
@@ -76,16 +76,17 @@ This is an unpacked beta, not a Chrome Web Store publication.
 
 Dashboard: ''' + origin + '/\nPrivacy: ' + origin + '/privacy.html\n')
     for source in (ROOT/'landing').iterdir():
-        if source.is_file() and source.name in ('index.html','sample-article.html','app.js','style.css'):
+        if source.is_file() and source.name in ('index.html','sample-article.html','app.js','style.css','i18n.js'):
             shutil.copyfile(source, hosting/source.name)
     (hosting/'config.js').write_text(config_js)
     shutil.copyfile(ROOT/'extension/auth.js',hosting/'auth.js')
+    shutil.copyfile(ROOT/'extension/i18n.js',hosting/'i18n.js')
     index = (hosting/'index.html').read_text().replace('<script src="app.js" defer>', '<script src="config.js" defer></script><script src="auth.js" defer></script><script src="app.js" defer>')
     index = index.replace('<h1>', '<p><a href="install.html">Install the Chrome extension</a></p><h1>', 1)
     index = index.replace('Install the Chrome extension</a>', 'Install the Chrome extension</a> · <a href="privacy.html">Privacy</a>')
     (hosting/'index.html').write_text(index)
     contact = ('<p>Contact: <a href="mailto:' + html.escape(support, quote=True) + '">' + html.escape(support) + '</a></p>') if support else ''
-    (hosting/'privacy.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mikata beta privacy</title><link rel="stylesheet" href="style.css"><main><h1>How the beta handles your data</h1><p>When you explicitly check text or upload an image, the selected content is sent to our Google Cloud backend and Gemini for research. The extension also sends the page title, but not the complete page URL or full article. No background article scanning is performed.</p><p>Firebase Authentication manages your email/password account. The extension keeps sign-in tokens and your email in trusted browser-session storage, and keeps endpoint settings and developer endpoint preferences in local extension storage. Passwords are not stored by this extension or our backend.</p><p>The backend does not persist submitted claims, image bytes or article text. Firestore stores daily usage counts keyed by a hash of your account identifier, plus global counts. Those records are scheduled to expire after 30 days; Firestore TTL deletion can occur later. Quota reservations can count even if research later fails. Google processes account and AI data under its own applicable service terms.</p><p>Research requests retrieve public evidence URLs from third-party publishers where automated access is permitted. Citation links take you to those sites, which have their own data practices. Avoid submitting confidential or sensitive content. AI verdicts may be wrong, and source independence can remain unresolved.</p><p>You can sign out or delete your Mikata account in the extension popup. Account deletion may require signing in again; usage records expire separately as described above.</p>''' + contact + '''<a href="install.html">Extension installation</a></main></html>''')
+    (hosting/'privacy.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mikata beta privacy</title><link rel="stylesheet" href="style.css"><main><h1>How the beta handles your data</h1><p>When you explicitly check text or upload an image, the selected content is sent to our Google Cloud backend and Gemini for research. The extension also sends the page title, but not the complete page URL or full article. No background article scanning is performed.</p><p>Firebase Authentication manages your email/password account. The extension keeps sign-in tokens and your email in trusted browser-session storage, and keeps endpoint preferences and your interface language in local extension storage. The dashboard saves its language preference in that website’s local storage. Passwords are not stored by this extension or our backend.</p><p>The backend does not persist submitted claims, image bytes or article text. Firestore stores daily usage counts keyed by a hash of your account identifier, plus global counts. Those records are scheduled to expire after 30 days; Firestore TTL deletion can occur later. Quota reservations can count even if research later fails. Google processes account and AI data under its own applicable service terms.</p><p>Research requests retrieve public evidence URLs from third-party publishers where automated access is permitted. Citation links take you to those sites, which have their own data practices. Avoid submitting confidential or sensitive content. AI verdicts may be wrong, and source independence can remain unresolved.</p><p>You can sign out or delete your Mikata account in the extension popup. Account deletion may require signing in again; usage records expire separately as described above.</p>''' + contact + '''<a href="install.html">Extension installation</a></main></html>''')
     downloads = hosting/'downloads'
     downloads.mkdir()
     archive = downloads/'mikata-extension.zip'

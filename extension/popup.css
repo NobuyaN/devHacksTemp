@@ -59,3 +59,9 @@ footer span { color: #d8a08e; font-size: 13px; }
 .logo-candidate { display:block; object-fit:contain; object-position:left center; width:183px; height:91px; margin:-12px 0 -8px -10px; }
 .brand-draft .japanese { margin-top:0; }
 .draft-tag { font-size:8px; border:1px solid #e6d4b9; background:#fff4e5; color:#997343; border-radius:99px; padding:1px 5px; white-space:nowrap; }
+
+/* English / Japanese segmented language switch. */
+.mikata-language-switch { display:flex; justify-content:flex-end; gap:2px; margin:10px 0; }
+.mikata-language-switch button { width:auto; padding:5px 11px; border:1px solid #d1dfd3; border-radius:8px; background:#fffdf7; color:#416553; font:inherit; font-size:12px; cursor:pointer; }
+.mikata-language-switch button[aria-pressed="true"] { background:#336952; border-color:#336952; color:white; }
+.mikata-language-switch button:focus-visible { outline:3px solid #e9b764; outline-offset:2px; }

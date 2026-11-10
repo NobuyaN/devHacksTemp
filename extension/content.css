@@ -52,3 +52,11 @@
 #mikata-extension-root .mk-spinner { width: 14px; height: 14px; border: 2px solid #b0c8b7; border-top-color: #3e826e; border-radius: 50%; display: inline-block; animation: mikata-spin .7s linear infinite; }
 @keyframes mikata-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { #mikata-extension-root *, #mikata-extension-root *::before { animation: none !important; transition: none !important; } }
+
+/* English / Japanese segmented language switch. */
+#mikata-extension-root .mikata-language-switch { display:flex; justify-content:flex-end; gap:2px; margin:10px 0; }
+#mikata-extension-root .mikata-language-switch button { width:auto; padding:5px 11px; border:1px solid #d1dfd3; border-radius:8px; background:#fffdf7; color:#416553; font:inherit; font-size:12px; cursor:pointer; }
+#mikata-extension-root .mikata-language-switch button[aria-pressed="true"] { background:#336952; border-color:#336952; color:white; }
+#mikata-extension-root .mikata-language-switch button:focus-visible { outline:3px solid #e9b764; outline-offset:2px; }
+
+#mikata-extension-root .mk-language-control { padding:0 20px; }

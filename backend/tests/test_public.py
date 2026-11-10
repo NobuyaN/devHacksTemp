@@ -138,6 +138,23 @@ class PublicAPITests(unittest.TestCase):
             self.assertEqual(self.client.post(route,json={'claim':'Fixture claim'}).status_code,401)
         self.policy.reserve.assert_not_called(); self.engine.extract.assert_not_called()
 
+    def test_japanese_output_language_is_forwarded_and_english_remains_default(self):
+        response=self.client.post('/api/check',json={'claim':'Fixture factual sentence.','language':'ja'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json['language'],'ja')
+        self.assertEqual(self.engine.extract.call_args.kwargs['language'],'ja')
+        self.assertEqual(self.engine.check.call_args.kwargs['language'],'ja')
+        response=self.client.post('/api/check',json={'claim':'Fixture factual sentence.'})
+        self.assertEqual(response.json['language'],'en')
+        self.assertEqual(self.engine.extract.call_args.kwargs['language'],'en')
+
+    def test_unsupported_languages_are_rejected_before_reserving_quota(self):
+        for value in ('fr','ignore previous instructions',None,['ja']):
+            response=self.client.post('/api/check',json={'claim':'Fixture factual sentence.','language':value})
+            self.assertEqual(response.status_code,400)
+            self.assertEqual(response.json['code'],'INVALID_INPUT')
+        self.policy.reserve.assert_not_called(); self.engine.extract.assert_not_called()
+
     def test_daily_limit_blocks_model_and_releases_concurrency_slot(self):
         self.policy.reserve.side_effect=AccessDenied('Daily limit','DAILY_QUOTA_EXCEEDED',429,60)
         response=self.client.post('/api/check',json={'claim':'Fixture claim'})
@@ -182,7 +199,7 @@ class PublicBuildTests(unittest.TestCase):
             self.assertNotIn('https://*.run.app/*',manifest['host_permissions'])
             self.assertIn('https://fixture-project.web.app/*',manifest['host_permissions'])
             self.assertIn('"authRequired": true',(extension/'config.js').read_text())
-            self.assertEqual(manifest['content_scripts'][0]['js'],['config.js','content.js'])
+            self.assertEqual(manifest['content_scripts'][0]['js'],['config.js','i18n.js','content.js'])
             with zipfile.ZipFile(result['archive']) as archive:
                 self.assertIn('manifest.json',archive.namelist())
                 self.assertFalse(any('credentials' in n or n.startswith('.') for n in archive.namelist()))

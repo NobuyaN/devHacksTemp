@@ -10,7 +10,7 @@ The extension keeps the existing Mikata visual design. The backend provides live
 4. Select this repository's **extension** folder, which contains `manifest.json`. Select the folder itself, not the whole repository.
 5. Open Chrome's puzzle-piece Extensions menu and click **mikata — a little perspective**. Optionally pin it to the toolbar.
 6. Expand **Connect your AI backend**, enter `http://127.0.0.1:8080`, and click **Save endpoint**.
-7. Open or refresh a normal website, highlight a sentence of at least 12 characters, then click **Check with mikata**. The result opens in the webpage sidebar. The popup also supports pasting a claim.
+7. Open or refresh a normal website, highlight a sentence of at least 8 characters, then click **Check with mikata**. The result opens in the webpage sidebar. The popup also supports pasting a claim.
 
 Official Chrome installation steps: [load an unpacked extension](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked).
 
@@ -55,3 +55,10 @@ The release contains the approved shared API origin and a public Firebase Auth i
 The backend verifies project/signature/expiry, revocation and email status and enforces durable user/global quotas before research. Modifying the extension or calling the API directly cannot bypass those server checks. A packaged endpoint overrides old per-profile developer settings; tokens are never sent to a user-supplied endpoint override. A failed public configuration reports an error rather than silently returning a design-preview verdict.
 
 See [public beta deployment plan](../deployment/PUBLIC_BETA.md). A ZIP loaded through Developer mode is the initial beta distribution; Chrome Web Store submission and approval are separate. The shared service is deployed. Controlled fixtures cover account handling; interactive multi-profile Chrome checks remain a manual QA step.
+
+
+## English / Japanese switch (0.4.0)
+
+Choose **English** or **日本語** in the popup or sidebar. The extension remembers the preference in Chrome local storage for that profile and synchronizes it across extension views. The dashboard has its own preference saved in that website’s local storage. Switching languages does not submit text, translate the underlying webpage, or start research.
+
+New checks request summaries/explanations in the selected language. Claims, source titles, evidence quotes, URLs and Google attribution stay in their original form. Existing results keep their original generated text; use Check again to request a new result in another language, which consumes an allowance. Privacy/install documentation and Google-managed account emails are not automatically translated by this UI switch.

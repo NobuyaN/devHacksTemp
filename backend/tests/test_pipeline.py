@@ -122,6 +122,23 @@ class ResearchTests(unittest.TestCase):
         engine.client = Mock(); engine.client.models.generate_content.return_value = response; engine.model = 'fixture'
         return engine
 
+    def test_selected_output_language_changes_instructions_without_rewriting_input(self):
+        engine=self.engine(NS(text='{"claims":[]}'))
+        engine.extract(text='地球は太陽の周りを公転しています。',language='en')
+        contents=engine.client.models.generate_content.call_args.kwargs['contents'][0]
+        self.assertIn('reason fields in English',contents)
+        self.assertIn('Keep extracted claim text in the input language',contents)
+        engine.extract(text='Fixture claim.',language='ja')
+        self.assertIn('reason fields in Japanese',engine.client.models.generate_content.call_args.kwargs['contents'][0])
+
+    def test_missing_grounding_remains_insufficient_in_japanese(self):
+        engine=self.engine(NS(text='{"assessment":"SUPPORTED","summary":"Fixture","explanation":"Fixture"}',candidates=[]))
+        result,sources,_=engine.discover(claim(),language='ja')
+        self.assertEqual(result['assessment'],'INSUFFICIENT_EVIDENCE')
+        self.assertIn('取得できません',result['summary'])
+        self.assertEqual(sources,[])
+        self.assertIn('summary and explanation in Japanese',engine.client.models.generate_content.call_args.kwargs['contents'])
+
     def test_candidate_homepages_and_empty_pages_are_not_inspected(self):
         source = dict(id='c',url='https://publisher.example/',title='',grounding_chunk_indices=[],discovery_method='research_candidate')
         result = inspect_source(source, lambda url:(url,'<title>Publisher home</title>' + 'Menu links. '*40))

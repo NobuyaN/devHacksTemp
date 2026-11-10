@@ -1,3 +1,4 @@
+const i18nCode = readFileSync(new URL('../extension/i18n.js', import.meta.url), 'utf8');
 // Integration fixtures only; no Chrome session and no live research.
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -15,6 +16,7 @@ function broker(payload, status = 200, networkError = null, options = {}) {
     URL, AbortController, setTimeout, clearTimeout,
     fetch: async (url, options) => { if (networkError) throw networkError; calls.push({ url, headers: options.headers, body: JSON.parse(options.body) }); return { ok: status === 200, status, json: async () => payload }; }
   });
+  vm.runInContext(i18nCode, context);
   vm.runInContext(code, context);
   return { calls, dispatch: (message, sender, sendResponse = () => {}) => listener(message, sender, sendResponse), check: (message = {}) => new Promise(resolve => listener({ type: 'MIKATA_CHECK', claim: 'Controlled fixture claim', sourceTitle: 'Fixture page', ...message }, {}, resolve)) };
 }
@@ -94,4 +96,12 @@ test('misconfigured public release never silently returns design-preview verdict
   assert.equal(result.code, 'SERVICE_NOT_CONFIGURED');
   assert.notEqual(result.demo, true);
   assert.equal(server.calls.length, 0);
+});
+
+test('English and Japanese checks do not coalesce and retain the requested language',async()=>{
+  const server=broker({status:'supported',summary:'Fixture only',sources:[]});
+  const [english,japanese]=await Promise.all([server.check({language:'en'}),server.check({language:'ja'})]);
+  assert.equal(server.calls.length,2);
+  assert.equal(server.calls[0].body.language,'en');assert.equal(server.calls[1].body.language,'ja');
+  assert.equal(english.language,'en');assert.equal(japanese.language,'ja');
 });

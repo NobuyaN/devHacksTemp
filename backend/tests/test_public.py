@@ -21,6 +21,10 @@ class PublicAccessTests(unittest.TestCase):
         policy._firebase = Mock(return_value=object())
         return policy
 
+    def test_beta_defaults_allow_one_hundred_user_and_shared_requests(self):
+        policy = self.policy()
+        self.assertEqual((policy.user_limit, policy.global_limit), (100, 100))
+
     def test_cloud_run_cannot_disable_authentication(self):
         with patch.dict(os.environ, {'K_SERVICE':'fixture','AUTH_MODE':'local'}, clear=True), self.assertRaises(RuntimeError): PublicAccess()
 
@@ -97,6 +101,28 @@ class QuotaTests(unittest.TestCase):
         with self.assertRaises(AccessDenied) as failure: p.reserve('fixture-user')
         self.assertEqual(failure.exception.code,'QUOTA_UNAVAILABLE')
         self.assertNotIn('private',str(failure.exception))
+
+    def test_hundredth_user_reservation_succeeds_and_next_is_rejected(self):
+        db=FakeDatabase(); p=self.policy(db,user=100,total=200)
+        with patch('google.cloud.firestore.transactional',side_effect=lambda fn:fn):
+            p.reserve('fixture-user')
+            for name, document in db.documents.items():
+                document['count']=99
+            result=p.reserve('fixture-user')
+            self.assertEqual((result['daily_limit'],result['remaining']),(100,0))
+            with self.assertRaises(AccessDenied) as failure: p.reserve('fixture-user')
+            self.assertEqual(failure.exception.code,'DAILY_QUOTA_EXCEEDED')
+            self.assertTrue(all(d['count']==100 for d in db.documents.values()))
+
+    def test_shared_hundred_request_limit_applies_across_accounts(self):
+        db=FakeDatabase(); p=self.policy(db,user=100,total=100)
+        with patch('google.cloud.firestore.transactional',side_effect=lambda fn:fn):
+            p.reserve('fixture-user-a')
+            for name, document in db.documents.items():
+                if name.startswith('global_'): document['count']=99
+            self.assertEqual(p.reserve('fixture-user-b')['remaining'],99)
+            with self.assertRaises(AccessDenied) as failure: p.reserve('fixture-user-c')
+            self.assertEqual(failure.exception.code,'SERVICE_DAILY_QUOTA_EXCEEDED')
 
 class PublicAPITests(unittest.TestCase):
     def setUp(self):

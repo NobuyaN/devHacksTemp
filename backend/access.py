@@ -26,8 +26,8 @@ class PublicAccess:
         if os.getenv('AUTH_MODE', 'local') not in ('local', 'firebase'):
             raise RuntimeError('AUTH_MODE must be local or firebase')
         self.project = os.getenv('GOOGLE_CLOUD_PROJECT')
-        self.user_limit = int(os.getenv('DAILY_USER_LIMIT', '5'))
-        self.global_limit = int(os.getenv('DAILY_GLOBAL_LIMIT', '50'))
+        self.user_limit = int(os.getenv('DAILY_USER_LIMIT', '100'))
+        self.global_limit = int(os.getenv('DAILY_GLOBAL_LIMIT', '100'))
         self.database = os.getenv('QUOTA_DATABASE', 'sourcelens')
         self.verified_email = os.getenv('REQUIRE_VERIFIED_EMAIL', 'true').lower() == 'true'
         if self.required and (not self.project or self.user_limit < 1 or self.global_limit < 1):

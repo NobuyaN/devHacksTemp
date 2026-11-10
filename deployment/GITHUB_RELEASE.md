@@ -7,16 +7,16 @@ Submit a release URL from the hackathon's designated repository. The local check
 - Proposed tag: `v0.3.0-beta.1` (Chrome manifest version `0.3.0`).
 - Title: `Mikata / SourceLens v0.3.0-beta.1`.
 - Notes: `docs/releases/v0.3.0-beta.1.md`.
-- Extension asset: `build/github-release-v0.3.0-beta.1/release-assets/mikata-extension-v0.3.0-beta.1.zip`.
-- Checksum asset: `build/github-release-v0.3.0-beta.1/release-assets/SHA256SUMS.txt`.
+- Extension asset: `build/public-100/release-assets/mikata-extension-v0.3.0-beta.1.zip`.
+- Checksum asset: `build/public-100/release-assets/SHA256SUMS.txt`.
 
 Artifacts are generated and Git-ignored. A teammate can rebuild from the repository and the public Auth configuration described in `PUBLIC_BETA.md`:
 
 ```sh
-python3 scripts/build_public.py --config build/public-config.json --output build/github-release-v0.3.0-beta.1
-mkdir -p build/github-release-v0.3.0-beta.1/release-assets
-cp build/github-release-v0.3.0-beta.1/hosting/downloads/mikata-extension.zip build/github-release-v0.3.0-beta.1/release-assets/mikata-extension-v0.3.0-beta.1.zip
-(cd build/github-release-v0.3.0-beta.1/release-assets && shasum -a 256 mikata-extension-v0.3.0-beta.1.zip > SHA256SUMS.txt)
+python3 scripts/build_public.py --config build/public-config.json --output build/public-100
+mkdir -p build/public-100/release-assets
+cp build/public-100/hosting/downloads/mikata-extension.zip build/public-100/release-assets/mikata-extension-v0.3.0-beta.1.zip
+(cd build/public-100/release-assets && shasum -a 256 mikata-extension-v0.3.0-beta.1.zip > SHA256SUMS.txt)
 ```
 
 Choose a new empty output directory if it already exists. Never put backend credentials in the release. The Firebase Auth API identifier in the configured extension is intentionally public and restricted to Auth APIs.

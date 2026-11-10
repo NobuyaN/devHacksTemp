@@ -6,7 +6,7 @@ The owner approved provisioning and public deployment on 2026-11-10. The existin
 - Dashboard: https://saladmanderdevhacks.web.app/
 - API health through Hosting: https://saladmanderdevhacks.web.app/api/health
 - Direct backend: https://sourcelens-api-6gj6yd2pfq-an.a.run.app
-- Released package/build configuration: `build/public-v2` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
+- Released package/build configuration: `build/public-100` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
 
 The first regional routing initialization took about ten minutes after the container became ready. Do not publish a new installation link until both the health check and a hosted signed request pass.
 
@@ -23,7 +23,7 @@ The initial distribution is a downloadable ZIP that users load unpacked. Chrome 
 - A **new dedicated Auth-only public Web API key**, restricted to Identity Toolkit and Secure Token APIs. Never use a Gemini/Vertex key in a client bundle. Do not change a shared existing key's restrictions and break other apps.
 - Cloud Run `sourcelens-api`, `asia-northeast1`, one maximum instance, zero minimum instances, concurrency 4, 55-second service timeout, 512 MiB/1 CPU. It is network-accessible, but every research route verifies Firebase ID tokens, revocation and email verification **before** reserving quota or calling Gemini.
 - Dedicated runtime and build service accounts. Runtime: Vertex AI User, Firebase Authentication Viewer (revocation/user checks), and Datastore User conditioned on the isolated `sourcelens` database. Builder: Cloud Run Builder. No service-account keys.
-- Named Firestore Native database **`sourcelens`**, Tokyo. It holds only daily hashed-user and global counters, not claims or images. Client rules deny all access; server IAM permits the runtime. Atomic transactions enforce **5 requests per verified user per UTC day** and **50 requests across the entire beta per UTC day**, including reserved requests that later fail. Model requests never start when quota storage fails.
+- Named Firestore Native database **`sourcelens`**, Tokyo. It holds only daily hashed-user and global counters, not claims or images. Client rules deny all access; server IAM permits the runtime. Atomic transactions enforce **100 requests per verified user per UTC day** and **100 requests across the entire beta per UTC day**, including reserved requests that later fail. Model requests never start when quota storage fails.
 - Counter TTL configured for `expires_at`, scheduled after 30 days; actual deletion can lag. A late transaction can consume quota after a client-visible timeout without starting an AI request.
 - Firebase Hosting serves the optional dashboard, sample article, install/privacy pages, release ZIP and `/api/**` rewrite to Cloud Run. No customer uses localhost.
 
@@ -88,7 +88,7 @@ Do not grant Owner/Editor to runtime/build identities. Deployer needs actAs on t
 Copy `deployment/public-config.example.json` to a **build-local** JSON file. Fill the public Auth-only key. Optionally add an operator-approved public support email; a blank contact field publishes no personal email. The builder rejects missing placeholders. `apiOrigin` is the approved Hosting origin. Public Auth configuration is allowed in the package; OAuth tokens, passwords and service-account keys are not.
 
 ```sh
-python3 scripts/build_public.py --config build/public-config.json --output build/public-v2
+python3 scripts/build_public.py --config build/public-config.json --output build/public-100
 (cd backend && .venv/bin/python -m unittest discover -s tests -v)
 npm run test:extension
 npm run build
@@ -113,7 +113,7 @@ Check the private service health using an authorized operator's identity token w
 ```sh
 gcloud run services add-iam-policy-binding sourcelens-api --region asia-northeast1 \
   --project "$PROJECT_ID" --member=allUsers --role=roles/run.invoker
-firebase deploy --config build/public-v2/firebase.json --only hosting,firestore:rules --project "$PROJECT_ID"
+firebase deploy --config build/public-100/firebase.json --only hosting,firestore:rules --project "$PROJECT_ID"
 ```
 
 Confirm the default Firebase Hosting site exists; creating it is part of the approved Firebase provisioning if absent. Deployment pins the selected Cloud Run revision. Smoke-test **401 for an unsigned `/api/check` request**, verify no Gemini call is made, then test signup/email verification and a signed check in a second Chrome profile using the **release** extension. Test quota rejection, sign-out/deletion and counter persistence. Do not send verification/reset emails to anyone unless they explicitly initiate the corresponding account action.
@@ -123,3 +123,11 @@ Confirm the default Firebase Hosting site exists; creating it is part of the app
 Browser script-generated highlight/retry clicks cannot start paid manual requests; existing results can still be opened without a new request. Controlled tests cover public-mode fail-closed defaults, token/verifier gating, verified-email enforcement, quota read/write ordering, persistent per-user/global counters, model blocking on quota failure, public package defaults, token routing to the pinned origin, account session handling and profile-isolated state. Live deployed tests additionally confirmed unsigned requests return 401, an unverified synthetic account returns 403, a verified synthetic account completes a real grounded research request, its durable counter persists, and its exhausted daily allowance returns 429. Synthetic accounts were deleted afterward; no verification/reset emails were sent. Hosted astronomy checks completed in 16.8 seconds initially and 14.2 seconds on final revision `sourcelens-api-00002-482`. The final check returned zero inspected pages (three grounding-redirect robots denials and one publisher-candidate timeout). IPv4-first connections and a bounded checked-address fallback are deployed, but these tests do not establish improved publisher retrieval rates or generally resolved independence. Direct Firebase-client database access also returned 403. Automated validation passed 61 backend tests, 30 extension tests, TypeScript/JavaScript checks and the structure smoke check. The published ZIP was downloaded and hash-matched to the release artifact. Interactive installation/email verification in a real Chrome profile still needs manual testing; no browser was connected in this environment.
 
 `robots.txt` presence does not imply denial. Rules are checked per URL. Some public publisher pages were fetched successfully, but Google grounding redirects explicitly disallow automated crawling; candidates and inaccessible pages remain labeled. This deployment does not convert unknown provenance into confirmed independence. The general independence detector remains a prototype with narrow positive coverage.
+
+## Allowance update — 2026-11-10
+
+At the owner's request, the allowance was raised to **100 per verified account per UTC day**, with **100 requests per UTC day across the shared beta**. Existing counters were preserved; this is a larger daily limit, not a fresh allocation of 100 additional requests. Auto Scan and reserved research failures still count. The shared limit can be reached before an individual account uses its entire allowance.
+
+Cloud Run revision `sourcelens-api-00003-zww` has both quota environment variables set to `100`, and Firebase Hosting was repinned to it. The install page, hosted ZIP and prepared GitHub release assets in `build/public-100/release-assets/` reflect the updated limits. Existing extensions inherit the new server-side allowance without reinstalling.
+
+64 backend tests and the structural smoke check passed. A temporary verified test account had only its own counter seeded to 99: its next hosted research request succeeded and returned `daily_limit: 100, remaining: 0`; the following request returned `429 DAILY_QUOTA_EXCEEDED`. The test account was deleted. No verification/reset emails were sent, real-user counters were untouched, and the shared counter was not reset. The downloaded hosted ZIP hash matched the generated artifact. This raises possible provider usage; request quotas do not establish a dollar spending cap.

@@ -33,7 +33,7 @@ In another terminal, preview the dashboard:
 python3 -m http.server 5000 --bind 127.0.0.1 --directory landing
 ```
 
-Open `http://127.0.0.1:5000`. It calls `http://localhost:8080/api/*` locally. On Firebase it calls same-origin `/api/*`, rewritten by `firebase.json` to `sourcelens-api` in `asia-northeast1`. Set the extension's existing **Connect your AI backend** field to `http://localhost:8080` or the approved Cloud Run URL; no manifest permissions change is required. Auto Scan remains opt-in.
+Open `http://127.0.0.1:5000`. It calls `http://localhost:8080/api/*` locally. On Firebase it calls same-origin `/api/*`, rewritten by `firebase.json` to `sourcelens-api` in `asia-northeast1`. For the source extension, set **Connect your AI backend** to `http://127.0.0.1:8080`. Use the configured release package for the authenticated shared Cloud Run service; the developer folder does not include its account configuration. Checks are manual; Auto Scan has been removed.
 
 `backend/.env.example` documents all runtime variables. `.env` is not automatically loaded; export values in the terminal. `PORT` defaults to 8080. Health reports configuration presence, not successful Vertex authentication.
 
@@ -188,7 +188,7 @@ A controlled local `/check` request after these changes completed in 11,808 ms w
 
 A successful local API connection can still be followed by a Google provider failure. The extension now displays such errors as **Research unavailable**, separately from a failed network connection. It preserves the backend's safe error code rather than adding a misleading connection-failure prefix.
 
-Extraction and grounded search each retry at most once after a randomized 1–1.5 second delay for transient Google HTTP 429, 500, 502, 503 or 504. Retry-After values that exceed the remaining stage budget prevent an immediate retry; date-based Retry-After values are conservatively left to a later user request. SDK-level retries remain disabled to avoid nested retry multiplication. Authentication, permission, invalid-request and missing-model failures are never retried. Transport timeouts are not retried automatically. A retry can incur an additional API charge and does not guarantee recovery or quota availability.
+Extraction and grounded search each retry at most once after a randomized 1–1.5 second delay for transient Google HTTP 429, 500, 502, 503 or 504. Retry-After values that exceed the remaining stage budget prevent an immediate retry; date-based Retry-After values are conservatively left to a later user request. SDK-level retries remain disabled to avoid nested retry multiplication. Authentication, permission, invalid-request and missing-model failures are never retried. Transport timeouts are eligible for the bounded retry/fallback described below. A retry can incur an additional API charge and does not guarantee recovery or quota availability.
 
 Exhausted capacity/server failures return `PROVIDER_RATE_LIMITED` or `PROVIDER_UNAVAILABLE` with HTTP 503 and `Retry-After: 30`. HTTP 400 is `RESEARCH_REQUEST_REJECTED`; authentication/model errors keep their existing codes. Provider bodies and selected text are not exposed. Google recommends bounded backoff for transient capacity failures: [Vertex API errors](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/api-errors).
 
@@ -202,7 +202,7 @@ Direct NASA URLs were retrievable in a controlled diagnostic. Large pages, PDF-o
 
 Positive independence remains narrow: the current rule requires inspected primary-study metadata and a published independent-replication/new-data statement linked to the other inspected study. This is not broad verification of independent authorship, reporting or datasets. Different domains, reachable pages, separate DOI links and model suggestions still do not establish independence. The system should not be advertised as a generally validated independent-source detector. A confirmed dependency based on a quote/link is a more attainable result for news articles; unresolved is an explicit limitation, not a hidden independent-source vote.
 
-Run `npm run test:extension` for the broker and DOM fixture tests. DOM tests simulate per-site enablement, two-check limits, preview behavior, source-backed warning clicks, supported results, missing citations, failed requests and password-page exclusion; they do not replace an interactive test in the user's real Chrome profile.
+Run `npm run test:extension` for the broker and DOM fixture tests. DOM tests cover manual checks, original citations/provenance, account handling, language preferences and the absence of automatic requests even with legacy scan settings; they do not replace an interactive test in the user's real Chrome profile.
 
 Live retrieval validation after the candidate change: a controlled Earth-orbit grounded search returned six grounding sources and one direct candidate; NASA’s `Earth Fact Sheet` at `https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html` was actually fetched and inspected. This verifies publisher retrieval for that page only. No independent-origin conclusion was inferred from availability. A prior diagnostic hit a provider deadline; source access and model response times remain variable.
 

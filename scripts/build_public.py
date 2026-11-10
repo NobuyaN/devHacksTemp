@@ -58,6 +58,23 @@ def build(config, output):
     manifest = json.loads((extension/'manifest.json').read_text())
     manifest['host_permissions'] = [origin+'/*','https://identitytoolkit.googleapis.com/*','https://securetoken.googleapis.com/*']
     (extension/'manifest.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False)+'\n')
+    (extension/'README.md').write_text('''# Mikata / SourceLens hosted beta
+
+1. Unzip this package and remove/disable any older Mikata extension in this profile.
+2. Open chrome://extensions, enable Developer mode, and select Load unpacked.
+3. Select this folder (the one containing manifest.json).
+4. Open Mikata, create a SourceLens account, verify your email, then click Refresh verified session.
+5. Refresh an ordinary article page, select a factual sentence, and click Check with mikata.
+
+No local server, CLI, Google Cloud account, or project ID is required.
+Each Chrome profile signs in separately. Auto Scan is off by default per website.
+Beta limits: five research requests per verified account per UTC day, subject to a shared fifty-request daily allowance. Failed reserved research can count.
+
+The factual verdict and source independence are separate. Blocked or inaccessible sources remain unresolved; different domains do not prove independence. This prototype does not guarantee truth or general independence verification.
+Selected text/page title are processed by Google Cloud. Avoid confidential content.
+This is an unpacked beta, not a Chrome Web Store publication.
+
+Dashboard: ''' + origin + '/\nPrivacy: ' + origin + '/privacy.html\n')
     for source in (ROOT/'landing').iterdir():
         if source.is_file() and source.name in ('index.html','sample-article.html','app.js','style.css'):
             shutil.copyfile(source, hosting/source.name)

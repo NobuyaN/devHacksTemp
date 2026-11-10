@@ -4,8 +4,9 @@ export interface Claim { id: string; text: string; checkable: boolean; reason: s
 export interface Citation { url: string; excerpt: string; attributed: boolean; syndicated: boolean; context_sentence: string }
 export interface EvidenceSource {
   id: string; url: string; title: string; grounding_chunk_indices: number[];
+  discovery_method?: 'grounding' | 'research_candidate';
   publisher: string | null; published_at: string | null;
-  inspection_status: 'inspected' | 'unverified'; inspection_error: string | null;
+  inspection_status: 'inspected' | 'unverified'; inspection_error: string | null; inspection_error_code: string | null;
   resolved_url?: string; canonical_urls: string[]; citations: Citation[];
   original_evidence: { identifier: string; author: string; methodology_excerpt: string | null } | null;
   content_hash?: string; text_excerpt?: string;
@@ -29,6 +30,7 @@ export interface IndependenceAnalysis {
 }
 export interface FactCheckResult {
   claim: Claim; assessment: Assessment; timings_ms: Record<string, number>; evidence_summary: string; explanation: string;
+  inspection_summary: { attempted_pages: number; fetched_pages: number; candidate_pages_inspected: number; failure_reasons: Record<string, number> };
   sources: EvidenceSource[]; independence: IndependenceAnalysis;
   /** Original Vertex grounding metadata; retained indices refer to grounding_chunks. */
   grounding: { grounding_chunks?: unknown[]; grounding_supports?: unknown[];

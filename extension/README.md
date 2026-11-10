@@ -37,3 +37,17 @@ Automated fixture and broker tests do not verify installation in a real Chrome p
 **Research unavailable** means the extension reached the backend, but Google processing, credentials, capacity or request validation prevented a completed result. Follow the specific message. Temporary provider failures get one bounded automatic retry; persistent provider issues may still require waiting or a cloud administrator's quota/IAM review.
 
 **Connection issue** means the request could not reach the saved endpoint or exceeded its browser timeout. Confirm that the local backend is running and the saved URL is `http://127.0.0.1:8080`. After extension code changes, reload its card on `chrome://extensions` and refresh the article page.
+
+## What Auto Scan actually checks
+
+Turn the per-site **Auto Scan** switch on in the popup while visiting an ordinary article page. It looks at up to 120 reading-oriented paragraph/list elements, heuristically selects up to two candidate sentences, and sends only those snippets for research when a backend is configured. English keyword/sentence heuristics miss many claims, especially text split across links, late-loading content and non-English articles. It is not a whole-page fact check or a background misinformation classifier.
+
+Temporary dotted markers identify candidates. Cited `contradicted` results become rose warnings and cited `needs_context` results become amber warnings. Supported results, missing citations and errors remove the markers. Clicking a retained warning opens its already fetched result; switching the site off removes its markers. Reloading the page permits another pair of checks and therefore can incur additional charges.
+
+Status messages now distinguish candidate absence, successful selected checks, insufficient evidence and failed requests. An empty page or “no warnings” does not prove the whole page accurate. Failed requests are shown as **Scan incomplete**.
+
+The optional localhost dashboard on port **5000** is a second frontend for pasted text, image uploads and inspecting raw API/graph results. The local API on port **8080** serves both clients and must keep running for the extension. You do not need to open the dashboard to use the extension.
+
+For provenance, expand **Source independence** to see each page's fetch status and failure reason. Grounding redirects may block automated retrieval; additional fetched publisher candidates are labeled separately and do not automatically count as independent. Zero inspected articles means article-level provenance was not checked; the factual assessment may still use Google grounding citations.
+
+For a reproducible manual Auto Scan demonstration with the existing local dashboard server, open `http://127.0.0.1:5000/sample-article.html`, enable Auto Scan for that site, and refresh. This is a copy of the repository’s labeled sample article, not a real publication. With a backend configured, its selected sentences receive real research calls; no live result is fabricated. Preview mode displays neutral candidate markers only.

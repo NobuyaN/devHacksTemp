@@ -4,7 +4,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit --strict backend/contracts/api.ts",
     "check:frontend": "node --check extension/background.js && node --check extension/content.js && node --check extension/popup.js && node --check landing/app.js",
-    "build": "npm run typecheck && npm run check:frontend"
+    "build": "npm run typecheck && npm run check:frontend",
+    "test:extension": "node --test scripts/test_extension.mjs scripts/test_content.mjs"
   },
-  "devDependencies": { "typescript": "5.9.3" }
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "typescript": "5.9.3"
+  }
 }

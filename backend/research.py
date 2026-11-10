@@ -5,6 +5,7 @@ import re
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+from collections import Counter
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
@@ -45,7 +46,7 @@ class ResearchEngine:
                     raise last_error
                 raise TimeoutError('Research stage deadline exceeded')
             call_config = config.model_copy(update={'http_options': types.HttpOptions(
-                timeout=max(1, int(min(16, remaining) * 1000)),
+                timeout=max(1, int(remaining * 1000)),
                 retry_options=types.HttpRetryOptions(attempts=1))})
             try:
                 return self.client.models.generate_content(model=self.model, contents=contents, config=call_config)
@@ -99,7 +100,11 @@ class ResearchEngine:
                       'and investigations; also seek credible contradicting reporting. Separate evidence from '
                       'opinion. Do not infer truth from article count or domains. Cite every factual conclusion. '
                       'Return JSON {"assessment":"SUPPORTED|CONTRADICTED|MIXED|INSUFFICIENT_EVIDENCE",'
-                      '"summary":"...","explanation":"..."}. Claim: ' + json.dumps(claim['text'])),
+                      '"summary":"...","explanation":"...","inspection_candidates":[{"url":"https://publisher.example/original-page"}]}. '
+                      'Provide up to two direct original publisher page URLs as inspection candidates, prioritizing '
+                      'publicly accessible primary reports and original studies with citations. Do not use Google '
+                      'redirect URLs for these candidates. Omit candidates if their exact URLs are unknown; never invent URLs. '
+                      'A candidate is not a verified citation. Claim: ' + json.dumps(claim['text'])),
             config=types.GenerateContentConfig(temperature=0, max_output_tokens=1800,
                     tools=[types.Tool(google_search=types.GoogleSearch())]))
         candidates = response.candidates or []
@@ -119,11 +124,26 @@ class ResearchEngine:
                 continue
             seen.add(url)
             sources.append(dict(id=stable_id(url), url=url, title=str(web.get('title') or url)[:300],
-                                grounding_chunk_indices=[index]))
+                                grounding_chunk_indices=[index], discovery_method="grounding"))
         try:
             assessment = parse_json(response.text)
         except (ValueError, TypeError):
             assessment = {}
+        inspection_candidates = []
+        raw_candidates = assessment.pop('inspection_candidates', [])
+        if isinstance(raw_candidates, list):
+            for item in raw_candidates[:8]:
+                try:
+                    url = normalize_url(item.get('url', '')) if isinstance(item, dict) else ''
+                except (TypeError, ValueError):
+                    continue
+                if not url or url in seen or url.startswith('https://vertexaisearch.cloud.google.com/'):
+                    continue
+                seen.add(url)
+                inspection_candidates.append(dict(id=stable_id(url), url=url, title='', grounding_chunk_indices=[],
+                                                  discovery_method='research_candidate'))
+                if len(inspection_candidates) == 2:
+                    break
         # Citation chunks alone do not prove that the generated conclusion is grounded.
         kept_indices = {i for source in sources for i in source['grounding_chunk_indices']}
         adequate = bool(sources and any(
@@ -134,6 +154,7 @@ class ResearchEngine:
             assessment = dict(assessment='INSUFFICIENT_EVIDENCE',
                               summary='Adequately attributed evidence was not returned.',
                               explanation='Grounded citations and relevant support are required before assessing this claim.')
+        assessment['inspection_candidates'] = inspection_candidates
         return assessment, sources, grounding
 
     def interpret_unresolved(self, sources, analysis):
@@ -176,12 +197,20 @@ class ResearchEngine:
         def check_one(claim):
             timings = {}
             started = time.monotonic()
+            inspection_summary = dict(attempted_pages=0, fetched_pages=0, candidate_pages_inspected=0, failure_reasons={})
             if claim['checkable']:
                 assessment, sources, grounding = self.discover(claim)
                 timings['grounded_search'] = round((time.monotonic() - started) * 1000)
                 inspection_started = time.monotonic()
-                with ThreadPoolExecutor(max_workers=6) as pool:
-                    inspected = list(pool.map(inspect_source, sources))
+                inspection_inputs = sources + assessment.get('inspection_candidates', [])
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    inspected = list(pool.map(inspect_source, inspection_inputs))
+                inspection_summary = dict(attempted_pages=len(inspected),
+                    fetched_pages=sum(s['inspection_status'] == 'inspected' for s in inspected),
+                    candidate_pages_inspected=sum(s.get('discovery_method') == 'research_candidate' and s['inspection_status'] == 'inspected' for s in inspected),
+                    failure_reasons=dict(Counter(s.get('inspection_error_code') or 'FETCH_FAILED' for s in inspected if s['inspection_status'] != 'inspected')))
+                # An unfetched model URL is not promoted into the evidence source list.
+                inspected = [s for s in inspected if s.get('discovery_method') != 'research_candidate' or s['inspection_status'] == 'inspected']
                 unique = {}
                 for source in inspected:
                     key = source.get('resolved_url', source['url'])
@@ -202,9 +231,10 @@ class ResearchEngine:
             return dict(claim=claim, assessment=assessment['assessment'], timings_ms=timings,
                                 evidence_summary=str(assessment.get('summary', ''))[:1000],
                                 explanation=str(assessment.get('explanation', ''))[:4000],
-                                sources=sources, independence=analysis, grounding=grounding,
+                                sources=sources, independence=analysis, grounding=grounding, inspection_summary=inspection_summary,
                                 limitations=analysis['limitations'] + [
                                     'Factual assessment is AI-assisted and separate from source provenance.',
-                                    'Search may miss relevant sources. At most six sources per claim are inspected.'])
+                                    'Search may miss relevant sources. At most six grounding sources plus two publisher candidates are inspected.',
+                                    'Fetched research candidates are not grounding attributions and are not proof of independent provenance.'])
         with ThreadPoolExecutor(max_workers=3) as pool:
             return list(pool.map(check_one, claims))

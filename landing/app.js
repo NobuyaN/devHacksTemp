@@ -18,8 +18,10 @@ function render(result) {
   const list = node('ul', '', card);
   for (const source of result.sources) {
     const li = node('li', '', list); sourceLink(li, source.title, source.url);
-    node('small', ` — ${source.inspection_status}${source.publisher ? ' · ' + source.publisher : ''}${source.published_at ? ' · ' + source.published_at : ''}`, li);
+    node('small', ` — ${source.discovery_method === 'research_candidate' ? 'Fetched research candidate · ' : ''}${source.inspection_status}${source.publisher ? ' · ' + source.publisher : ''}${source.published_at ? ' · ' + source.published_at : ''}`, li);
   }
+  if (!graph.total_articles_inspected) node('p', 'Article-level provenance could not be checked. The factual verdict uses grounded search, not verified independent origins.', card);
+  for (const source of result.sources) if (source.inspection_error) node('p', `${source.title}: ${source.inspection_error}`, card);
   for (const edge of graph.dependencies) {
     const detail = node('details', '', card); node('summary', edge.relationship_type.replaceAll('_', ' '), detail);
     node('p', edge.evidence, detail); sourceLink(detail, 'Inspect attribution', edge.supporting_source_url);

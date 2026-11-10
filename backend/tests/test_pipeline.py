@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace as NS
 from unittest.mock import patch, Mock
 from dependencies import analyze_independence
-from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES
+from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES, InspectionFailure
 from main import create_app
 from research import ResearchEngine
 
@@ -99,6 +99,50 @@ class ResearchTests(unittest.TestCase):
         engine = ResearchEngine.__new__(ResearchEngine)
         engine.client = Mock(); engine.client.models.generate_content.return_value = response; engine.model = 'fixture'
         return engine
+
+    def test_candidate_homepages_and_empty_pages_are_not_inspected(self):
+        source = dict(id='c',url='https://publisher.example/',title='',grounding_chunk_indices=[],discovery_method='research_candidate')
+        result = inspect_source(source, lambda url:(url,'<title>Publisher home</title>' + 'Menu links. '*40))
+        self.assertEqual(result['inspection_error_code'], 'NOT_ARTICLE_PAGE')
+        empty = inspect_source(dict(source,url='https://publisher.example/report'),lambda url:(url,'<html></html>'))
+        self.assertEqual(empty['inspection_error_code'], 'NO_ARTICLE_TEXT')
+
+    def test_direct_candidates_are_not_grounding_citations(self):
+        import json
+        metadata = Mock(); metadata.model_dump.return_value = {'grounding_chunks':[{'web':{'uri':'https://grounding.example/link','title':'Grounding fixture'}}], 'grounding_supports':[{'segment':{'text':'Fixture support'},'grounding_chunk_indices':[0]}]}
+        engine = self.engine(NS(text=json.dumps({'assessment':'SUPPORTED','inspection_candidates':[{'url':'https://publisher.example/report'},{'url':'http://unsafe.example/'},{'url':'https://vertexaisearch.cloud.google.com/grounding-api-redirect/x'}]}), candidates=[NS(grounding_metadata=metadata)]))
+        assessment, sources, _ = engine.discover(claim())
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(len(assessment['inspection_candidates']), 1)
+        self.assertEqual(assessment['inspection_candidates'][0]['grounding_chunk_indices'], [])
+        self.assertEqual(assessment['inspection_candidates'][0]['discovery_method'], 'research_candidate')
+
+    def test_unfetched_model_candidates_never_enter_graph_and_no_independence_is_invented(self):
+        engine = self.engine(None)
+        grounded = dict(id='grounded',url='https://grounding.example/link',title='Grounding fixture',grounding_chunk_indices=[0],discovery_method='grounding')
+        candidates = [dict(id=x,url=f'https://{x}.example/report',title='',grounding_chunk_indices=[],discovery_method='research_candidate') for x in ('accessible','missing')]
+        engine.discover = Mock(return_value=({'assessment':'SUPPORTED','summary':'Fixture','explanation':'Fixture','inspection_candidates':candidates}, [grounded], {}))
+        def inspect(source):
+            def fetch(url):
+                if source['id'] == 'grounded': raise InspectionFailure('ROBOTS_DISALLOWED','Fixture robots block')
+                if source['id'] == 'missing': raise InspectionFailure('HTTP_404','Fixture missing page')
+                return url, '<title>Actual publisher title</title><main><p>' + 'Controlled original page content. ' * 15 + '</p></main>'
+            return inspect_source(source, fetch)
+        with patch('research.inspect_source', side_effect=inspect):
+            result = engine.check([claim()])[0]
+        self.assertEqual([s['id'] for s in result['sources']], ['grounded','accessible'])
+        self.assertEqual(result['sources'][1]['title'], 'Actual publisher title')
+        self.assertEqual(result['independence']['total_articles_inspected'], 1)
+        self.assertEqual(result['independence']['confirmed_distinct_evidence_origins'], 0)
+        self.assertEqual(result['inspection_summary']['attempted_pages'], 3)
+        self.assertEqual(result['inspection_summary']['failure_reasons'], {'ROBOTS_DISALLOWED':1,'HTTP_404':1})
+        engine.client.models.generate_content.assert_not_called()
+
+    def test_candidates_cannot_rescue_ungrounded_factual_assessment(self):
+        engine = self.engine(NS(text='{"assessment":"SUPPORTED","inspection_candidates":[{"url":"https://publisher.example/report"}]}', candidates=[]))
+        assessment, _, _ = engine.discover(claim())
+        self.assertEqual(assessment['assessment'], 'INSUFFICIENT_EVIDENCE')
+        self.assertEqual(len(assessment['inspection_candidates']), 1)
 
     def test_multimodal_multiple_claims(self):
         engine = self.engine(NS(text='{"claims":[{"text":"Claim one","checkable":true},{"text":"Claim two","checkable":true}]}'))
@@ -294,11 +338,24 @@ class APITests(unittest.TestCase):
         self.assertEqual(self.engine.extract.call_count, 2)
         self.assertEqual(self.engine.check.call_count, 2)
 
+    def test_legacy_fact_citations_exclude_model_candidates(self):
+        self.engine.check.return_value[0]['sources'] = [dict(id='g',url='https://grounding.example/',title='Grounded',discovery_method='grounding'),dict(id='c',url='https://candidate.example/',title='Fetched candidate',discovery_method='research_candidate')]
+        response = self.client.post('/check',json={'claim':'Fixture claim text'})
+        self.assertEqual([s['id'] for s in response.json['sources']], ['g'])
+        self.assertEqual(len(response.json['results'][0]['sources']), 2)
+
     def test_health(self):
         self.assertEqual(self.client.get('/api/health').status_code, 200)
 
 
 class PublisherPolicyTests(unittest.TestCase):
+    def test_inspection_reports_robots_reason_without_inventing_contents(self):
+        def denied(url): raise InspectionFailure('ROBOTS_DISALLOWED', 'Automated inspection disallowed')
+        source = inspect_source(dict(id='g',url='https://grounding.example/'), denied)
+        self.assertEqual(source['inspection_error_code'], 'ROBOTS_DISALLOWED')
+        self.assertNotIn('text_excerpt', source)
+        self.assertEqual(source['inspection_status'], 'unverified')
+
     def test_disallowed_robots_prevents_article_request(self):
         response = Mock(status=200)
         response.getheader.side_effect = lambda key, default=None: {'Content-Type': 'text/plain', 'Content-Encoding': 'identity'}.get(key, default)

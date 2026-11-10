@@ -118,7 +118,7 @@ def create_app(engine_factory=ResearchEngine):
             if len(results) == 1:
                 r = results[0]
                 payload.update(status=STATUS[r['assessment']], summary=r['evidence_summary'],
-                               detail=r['explanation'], sources=r['sources'])
+                               detail=r['explanation'], sources=[s for s in r['sources'] if s.get('discovery_method') != 'research_candidate'])
             else:
                 payload.update(status='insufficient_evidence', summary='Review each extracted claim separately.',
                                detail='No aggregate factual verdict is assigned.', sources=[])

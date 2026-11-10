@@ -155,6 +155,19 @@
       if (!graph) continue;
       add("p", `${graph.total_articles_inspected || 0} articles inspected. ${graph.confirmed_distinct_evidence_origins || 0} confirmed distinct evidence origins. ${(graph.sources_with_unresolved_independence || []).length} sources with unresolved independence.`, details);
       add("p", "Unresolved sources do not count as independent. Published methodology statements are not a raw-data audit.", details);
+      if (!graph.total_articles_inspected) add("p", "Article-level provenance could not be checked. The verdict above is based on grounded search, not verified independent origins.", details);
+      add("p", `${graph.documented_origin_count || 0} documented attribution targets; ${graph.confirmed_dependent_articles || 0} articles with confirmed attribution.`, details);
+      for (const source of result.sources || []) {
+        const row = add("div", "", details);
+        link(row, source.title || source.url, source.resolved_url || source.url);
+        add("p", source.inspection_status === "inspected"
+          ? (source.discovery_method === "research_candidate" ? "Fetched publisher candidate · not a grounding attribution or independence proof" : "Page fetched · independence still requires provenance evidence")
+          : `Unverified: ${source.inspection_error || "Page could not be inspected"}`, row);
+      }
+      if (result.inspection_summary) {
+        const reasons = Object.entries(result.inspection_summary.failure_reasons || {}).map(([reason, count]) => `${count} ${reason.replaceAll("_", " ").toLowerCase()}`);
+        if (reasons.length) add("p", `Inspection limits: ${reasons.join("; ")}.`, details);
+      }
       for (const edge of graph.dependencies || []) {
         const relationship = add("details", "", details);
         add("summary", `${edge.relationship_type.replaceAll("_", " ")} · ${edge.verification_status}`, relationship);
@@ -349,7 +362,7 @@
     if (!scanEnabled || generation !== scanGeneration) return;
     const records = candidates.map(insertMarker).filter(Boolean);
     if (!records.length) {
-      showScanToast("Mikata couldn't spot any strong checkable claims here.");
+      showScanToast("No candidate claims found. This page has not been fact-checked.");
       return;
     }
     const { apiUrl = "" } = await chrome.storage.local.get("apiUrl");
@@ -365,6 +378,9 @@
     }
     showScanToast(`✿ Checking up to ${MAX_AUTO_CHECKS - autoRequestsUsed} claim${MAX_AUTO_CHECKS - autoRequestsUsed > 1 ? "s" : ""} with sources...`);
     let warnings = 0;
+    let failed = 0;
+    let withoutEvidence = 0;
+    let checked = 0;
     for (const record of records) {
       if (!scanEnabled || generation !== scanGeneration || autoRequestsUsed >= MAX_AUTO_CHECKS) break;
       autoRequestsUsed++;
@@ -378,6 +394,9 @@
       record.result = result;
       // IMPORTANT: no warning for unverified preview content, no-source checks or errors.
       const evidence = !result?.demo && !result?.error && Array.isArray(result?.sources) && result.sources.length > 0;
+      if (result?.error || !result) failed++;
+      else if (!evidence) withoutEvidence++;
+      else checked++;
       if (evidence && (result.status === "needs_context" || result.status === "contradicted")) {
         record.element.classList.remove("is-review");
         record.element.classList.add(result.status === "contradicted" ? "is-contradicted" : "is-context");
@@ -390,8 +409,12 @@
       }
     }
     if (!scanEnabled || generation !== scanGeneration) return;
-    showScanToast(warnings ? `✿ ${warnings} claim${warnings > 1 ? "s" : ""} may need a closer look. Tap the dotted underline.`
-      : "✿ Scan finished · no source-backed warnings found.");
+    const outcome = warnings ? `${warnings} source-backed warning${warnings > 1 ? "s" : ""}; tap an underline.`
+      : checked ? `${checked} selected claim${checked === 1 ? "" : "s"} checked with citations; no warnings.`
+      : "No completed cited checks.";
+    showScanToast(failed ? `Scan incomplete: ${failed} check${failed === 1 ? "" : "s"} failed. ${outcome} The rest of the page was not checked.`
+      : withoutEvidence ? `Scan incomplete: ${withoutEvidence} claim${withoutEvidence === 1 ? "" : "s"} lacked cited evidence. ${outcome}`
+      : `${outcome} The rest of the page was not checked.`);
   }
 
   function enableScan() {

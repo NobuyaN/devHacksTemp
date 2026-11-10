@@ -1,16 +1,26 @@
 // TEAM HANDOFF — toolbar popup (visuals + settings).
 // TODO(UI): Test draft logo readability, spacing and keyboard focus at 100% / 125% zoom.
 // TODO(SECURITY): The backend URL is *not* a secret. Never save API keys/tokens here.
-// TODO(PRIVACY): If adding a global scan toggle, keep opt-in / per-site consent visible.
 // See docs/TEAM_TASKS.md and docs/SECURITY_AND_CREDITS.md before adding features.
 
 const $ = id => document.getElementById(id);
+const publicConfig = globalThis.SOURCELENS_CONFIG || {};
+const I = globalThis.MikataI18n;
+const tr = (key, values) => I.t(key, values);
+I.mountSwitch($("language-control"));
+I.bind(document.documentElement);
+let accountState = null;
+let lastMessage = "";
+I.onChange(() => { updateMode($("api-url").value); if (accountState) renderAccount(accountState); setMessage(lastMessage); });
+
 const sample = "Electric vehicles produce zero emissions.";
 
-function setMessage(message) { $("message").textContent = message || ""; }
+function setMessage(message) { lastMessage = message; $("message").textContent = tr(message || ""); }
 
 async function sendToPage(message) {
   try {
+    await I.ready;
+    message = { ...message, language: I.language };
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error("No webpage is active.");
     const response = await chrome.tabs.sendMessage(tab.id, message);
@@ -29,7 +39,7 @@ $("paste-btn").addEventListener("click", () => {
 });
 $("sample-btn").addEventListener("click", () => {
   $("claim-input").value = sample;
-  setMessage("Sample ready! Click “Check this claim” to see the design preview.");
+  setMessage($("mode-pill").classList.contains("live") ? "Sample ready. Click Check this claim to run a live check." : "Sample ready! Click Check this claim to see the design preview.");
 });
 
 function validUrl(value) {
@@ -43,7 +53,7 @@ function validUrl(value) {
 
 function updateMode(url) {
   const pill = $("mode-pill");
-  pill.textContent = url ? "✿ Connected to your backend" : "✦ Design preview mode";
+  pill.textContent = tr(publicConfig.authRequired ? "✿ Shared Mikata service" : url ? "✿ Connected to your backend" : "✦ Design preview mode");
   pill.classList.toggle("live", Boolean(url));
 }
 
@@ -52,7 +62,7 @@ $("save-btn").addEventListener("click", async () => {
   if (!validUrl(url)) return setMessage("Use an https://…run.app URL, or http://localhost for testing.");
   await chrome.storage.local.set({ apiUrl: new URL(url).origin });
   updateMode(url);
-  setMessage("Endpoint saved. Live checks may use Google Cloud credits—please keep Auto Scan off when not testing.");
+  setMessage("Endpoint saved. Checking a claim sends it to your backend and may use Google Cloud credits.");
 });
 $("reset-btn").addEventListener("click", async () => {
   await chrome.storage.local.remove("apiUrl");
@@ -61,44 +71,59 @@ $("reset-btn").addEventListener("click", async () => {
   setMessage("Back in design preview mode.");
 });
 chrome.storage.local.get("apiUrl").then(({ apiUrl }) => {
-  if (apiUrl) $("api-url").value = apiUrl;
-  updateMode(apiUrl);
+  const endpoint = publicConfig.authRequired ? publicConfig.apiOrigin : apiUrl || publicConfig.apiOrigin;
+  if (endpoint) $("api-url").value = endpoint;
+  updateMode(endpoint);
+  if (publicConfig.authRequired) $("settings").hidden = true;
 });
 
 
-// Auto Scan is explicitly opted into PER WEBSITE and starts disabled everywhere else.
-let currentOrigin = null;
-function describeSite() { return currentOrigin ? new URL(currentOrigin).hostname : "this page"; }
-async function initializeAutoScan() {
-  const toggle = $("auto-toggle");
+async function accountAction(type) {
+  const request = { type };
+  const credentials = ["MIKATA_AUTH_SIGN_IN", "MIKATA_AUTH_SIGN_UP"].includes(type);
+  if (credentials || type === "MIKATA_AUTH_RESET") request.email = $("account-email").value.trim();
+  if (credentials) request.password = $("account-password").value;
+  const buttons = $("account-panel").querySelectorAll("button");
+  buttons.forEach(button => { button.disabled = true; });
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = new URL(tab?.url || "");
-    if (!(["https:", "http:"].includes(url.protocol))) throw new Error("unsupported");
-    currentOrigin = url.origin;
-    const { autoScanSites = {} } = await chrome.storage.local.get("autoScanSites");
-    toggle.checked = autoScanSites[currentOrigin] === true;
-    $("auto-note").textContent = `${toggle.checked ? "On" : "Off"} for ${describeSite()} · saved for this website`;
-  } catch (_) {
-    toggle.disabled = true;
-    $("auto-note").textContent = "Open a normal website to use Auto Scan.";
+    const response = await chrome.runtime.sendMessage(request);
+    if (!response || response.error) throw new Error(response?.error || "Sign-in service is unavailable.");
+    if (typeof response.signedIn === "boolean") renderAccount(response);
+    return response;
+  } finally {
+    if (credentials) $("account-password").value = "";
+    buttons.forEach(button => { button.disabled = false; });
   }
 }
-$("auto-toggle").addEventListener("change", async event => {
-  if (!currentOrigin) return;
-  const toggle = event.currentTarget;
-  toggle.disabled = true;
-  try {
-    const { autoScanSites = {} } = await chrome.storage.local.get("autoScanSites");
-    const updated = { ...autoScanSites };
-    if (toggle.checked) updated[currentOrigin] = true;
-    else delete updated[currentOrigin];
-    await chrome.storage.local.set({ autoScanSites: updated });
-    $("auto-note").textContent = `${toggle.checked ? "On" : "Off"} for ${describeSite()} · saved for this website`;
-    setMessage(toggle.checked ? "Auto Scan enabled! The current page will show gentle claim indicators." : "Auto Scan disabled here. Existing indicators are removed.");
-  } catch (error) {
-    toggle.checked = !toggle.checked;
-    setMessage(`Couldn't save Auto Scan: ${error.message}`);
-  } finally { toggle.disabled = false; }
+
+function renderAccount(state) {
+  accountState = state;
+  $("account-form").hidden = state.signedIn;
+  $("account-session").hidden = !state.signedIn;
+  $("account-refresh").hidden = state.emailVerified;
+  $("account-verify").hidden = state.emailVerified;
+  $("account-status").textContent = state.signedIn
+    ? (state.emailVerified ? tr("Signed in as {email}. Refresh the article to start checking.", {email: state.email}) : tr("Verify the email sent to {email}, then click Refresh.", {email: state.email}))
+    : tr("Sign in or create a Mikata account to check claims.");
+}
+if (publicConfig.authRequired) {
+  $("account-panel").hidden = false;
+  $("account-privacy").href = publicConfig.apiOrigin + "/privacy.html";
+  accountAction("MIKATA_AUTH_STATUS").catch(error => setMessage(error.message));
+}
+$("account-form").addEventListener("submit", event => { event.preventDefault(); accountAction("MIKATA_AUTH_SIGN_IN").catch(error => setMessage(error.message)); });
+$("account-create").addEventListener("click", () => {
+  if (!$("account-form").reportValidity()) return;
+  accountAction("MIKATA_AUTH_SIGN_UP").then(state => { if (state.verificationSent === false) setMessage("Account created. Use Resend verification email to try sending your verification link."); }).catch(error => setMessage(error.message));
 });
-initializeAutoScan();
+for (const [id, action] of [["account-refresh", "REFRESH"], ["account-signout", "SIGN_OUT"], ["account-verify", "VERIFY"]]) {
+  $(id).addEventListener("click", () => accountAction(`MIKATA_AUTH_${action}`).then(result => { if (result.sent) setMessage("Verification email sent."); }).catch(error => setMessage(error.message)));
+}
+
+$("account-reset").addEventListener("click", () => {
+  if (!$("account-email").reportValidity() || !$("account-email").value.trim()) return setMessage("Enter your email first.");
+  accountAction("MIKATA_AUTH_RESET").then(() => setMessage("If this account exists, a password reset email will be sent.")).catch(error => setMessage(error.message));
+});
+$("account-delete").addEventListener("click", () => {
+  if (confirm(tr("Delete your Mikata account? This cannot be undone. Usage counters expire separately after their retention period."))) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
+});

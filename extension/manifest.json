@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "mikata — a little perspective",
   "short_name": "mikata",
-  "version": "0.3.0",
-  "description": "Cozy source-aware fact-checking extension with optional per-site Auto Scan. Requires a backend for live checks.",
+  "version": "0.4.0",
+  "description": "Check highlighted text or pasted claims with AI-assisted research, citations and source-provenance analysis.",
   "permissions": [
     "storage",
     "activeTab"
@@ -23,6 +23,8 @@
         "https://*/*"
       ],
       "js": [
+        "config.js",
+        "i18n.js",
         "content.js"
       ],
       "css": [
@@ -45,5 +47,6 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "minimum_chrome_version": "102"
 }

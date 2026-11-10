@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace as NS
 from unittest.mock import patch, Mock
 from dependencies import analyze_independence
-from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES
+from inspection import normalize_url, inspect_source, stable_id, fetch_html, MAX_BYTES, InspectionFailure, connect_public
 from main import create_app
 from research import ResearchEngine
 
@@ -78,6 +78,28 @@ class DependencyTests(unittest.TestCase):
             with patch('inspection.socket.getaddrinfo', return_value=[(2,1,6,'',(ip,443))]):
                 with self.assertRaises(ValueError): fetch_html('https://metadata.example/')
 
+    def test_publisher_connection_prefers_ipv4_over_lexically_first_ipv6(self):
+        import time
+        connection = Mock()
+        with patch('inspection.PinnedHTTPS', return_value=connection) as ctor:
+            self.assertIs(connect_public('publisher.example', {'2606:4700:4700::1111','8.8.8.8'}, time.monotonic()+5), connection)
+            self.assertEqual(ctor.call_args.args[1], '8.8.8.8')
+
+    def test_publisher_connection_tries_second_checked_address(self):
+        import time
+        failed, reachable = Mock(), Mock()
+        failed.connect.side_effect = TimeoutError()
+        with patch('inspection.PinnedHTTPS', side_effect=[failed, reachable]) as ctor:
+            self.assertIs(connect_public('publisher.example', {'8.8.8.8','9.9.9.9'}, time.monotonic()+5), reachable)
+            self.assertEqual(ctor.call_count, 2)
+            failed.close.assert_called_once()
+
+    def test_mixed_public_and_private_dns_answers_are_blocked_before_connect(self):
+        rows = [(2,1,6,'',(ip,443)) for ip in ('8.8.8.8','127.0.0.1')]
+        with patch('inspection.socket.getaddrinfo', return_value=rows), patch('inspection.PinnedHTTPS') as ctor:
+            with self.assertRaises(InspectionFailure): fetch_html('https://publisher.example/')
+            ctor.assert_not_called()
+
     def test_redirect_to_private_is_blocked(self):
         response = Mock(status=302)
         response.getheader.return_value = 'https://127.0.0.1/secret'
@@ -99,6 +121,67 @@ class ResearchTests(unittest.TestCase):
         engine = ResearchEngine.__new__(ResearchEngine)
         engine.client = Mock(); engine.client.models.generate_content.return_value = response; engine.model = 'fixture'
         return engine
+
+    def test_selected_output_language_changes_instructions_without_rewriting_input(self):
+        engine=self.engine(NS(text='{"claims":[]}'))
+        engine.extract(text='地球は太陽の周りを公転しています。',language='en')
+        contents=engine.client.models.generate_content.call_args.kwargs['contents'][0]
+        self.assertIn('reason fields in English',contents)
+        self.assertIn('Keep extracted claim text in the input language',contents)
+        engine.extract(text='Fixture claim.',language='ja')
+        self.assertIn('reason fields in Japanese',engine.client.models.generate_content.call_args.kwargs['contents'][0])
+
+    def test_missing_grounding_remains_insufficient_in_japanese(self):
+        engine=self.engine(NS(text='{"assessment":"SUPPORTED","summary":"Fixture","explanation":"Fixture"}',candidates=[]))
+        result,sources,_=engine.discover(claim(),language='ja')
+        self.assertEqual(result['assessment'],'INSUFFICIENT_EVIDENCE')
+        self.assertIn('取得できません',result['summary'])
+        self.assertEqual(sources,[])
+        self.assertIn('summary and explanation in Japanese',engine.client.models.generate_content.call_args.kwargs['contents'])
+
+    def test_candidate_homepages_and_empty_pages_are_not_inspected(self):
+        source = dict(id='c',url='https://publisher.example/',title='',grounding_chunk_indices=[],discovery_method='research_candidate')
+        result = inspect_source(source, lambda url:(url,'<title>Publisher home</title>' + 'Menu links. '*40))
+        self.assertEqual(result['inspection_error_code'], 'NOT_ARTICLE_PAGE')
+        empty = inspect_source(dict(source,url='https://publisher.example/report'),lambda url:(url,'<html></html>'))
+        self.assertEqual(empty['inspection_error_code'], 'NO_ARTICLE_TEXT')
+
+    def test_direct_candidates_are_not_grounding_citations(self):
+        import json
+        metadata = Mock(); metadata.model_dump.return_value = {'grounding_chunks':[{'web':{'uri':'https://grounding.example/link','title':'Grounding fixture'}}], 'grounding_supports':[{'segment':{'text':'Fixture support'},'grounding_chunk_indices':[0]}]}
+        engine = self.engine(NS(text=json.dumps({'assessment':'SUPPORTED','inspection_candidates':[{'url':'https://publisher.example/report'},{'url':'http://unsafe.example/'},{'url':'https://vertexaisearch.cloud.google.com/grounding-api-redirect/x'}]}), candidates=[NS(grounding_metadata=metadata)]))
+        assessment, sources, _ = engine.discover(claim())
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(len(assessment['inspection_candidates']), 1)
+        self.assertEqual(assessment['inspection_candidates'][0]['grounding_chunk_indices'], [])
+        self.assertEqual(assessment['inspection_candidates'][0]['discovery_method'], 'research_candidate')
+
+    def test_unfetched_model_candidates_never_enter_graph_and_no_independence_is_invented(self):
+        engine = self.engine(None)
+        grounded = dict(id='grounded',url='https://grounding.example/link',title='Grounding fixture',grounding_chunk_indices=[0],discovery_method='grounding')
+        candidates = [dict(id=x,url=f'https://{x}.example/report',title='',grounding_chunk_indices=[],discovery_method='research_candidate') for x in ('accessible','missing')]
+        engine.discover = Mock(return_value=({'assessment':'SUPPORTED','summary':'Fixture','explanation':'Fixture','inspection_candidates':candidates}, [grounded], {}))
+        def inspect(source):
+            def fetch(url):
+                if source['id'] == 'grounded': raise InspectionFailure('ROBOTS_DISALLOWED','Fixture robots block')
+                if source['id'] == 'missing': raise InspectionFailure('HTTP_404','Fixture missing page')
+                return url, '<title>Actual publisher title</title><main><p>' + 'Controlled original page content. ' * 15 + '</p></main>'
+            return inspect_source(source, fetch)
+        with patch('research.inspect_source', side_effect=inspect):
+            result = engine.check([claim()])[0]
+        self.assertEqual([s['id'] for s in result['sources']], ['grounded','accessible'])
+        self.assertEqual(result['sources'][1]['title'], 'Actual publisher title')
+        self.assertEqual(result['independence']['total_articles_inspected'], 1)
+        self.assertEqual(result['independence']['confirmed_distinct_evidence_origins'], 0)
+        self.assertEqual(result['inspection_summary']['attempted_pages'], 3)
+        self.assertEqual(result['inspection_summary']['failure_reasons'], {'ROBOTS_DISALLOWED':1,'HTTP_404':1})
+        engine.client.models.generate_content.assert_not_called()
+
+    def test_candidates_cannot_rescue_ungrounded_factual_assessment(self):
+        engine = self.engine(NS(text='{"assessment":"SUPPORTED","inspection_candidates":[{"url":"https://publisher.example/report"}]}', candidates=[]))
+        assessment, _, _ = engine.discover(claim())
+        self.assertEqual(assessment['assessment'], 'INSUFFICIENT_EVIDENCE')
+        self.assertEqual(len(assessment['inspection_candidates']), 1)
 
     def test_multimodal_multiple_claims(self):
         engine = self.engine(NS(text='{"claims":[{"text":"Claim one","checkable":true},{"text":"Claim two","checkable":true}]}'))
@@ -180,6 +263,42 @@ class ResearchTests(unittest.TestCase):
             engine.extract(text='Fixture claim text')
         sleep.assert_not_called()
         self.assertEqual(engine.client.models.generate_content.call_count, 1)
+
+    def test_transient_error_uses_configured_faster_gemini_fallback_with_same_budget(self):
+        from google.genai.errors import ServerError
+        engine=self.engine(None)
+        engine.model='gemini-3.5-flash'; engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=[ServerError(500,{'error':{'message':'Fixture failure'}}),NS(text='{"claims":[]}')]
+        with patch('research.time.sleep'), patch('research.time.monotonic',side_effect=[0,0,7,7]):
+            self.assertEqual(engine.extract(text='Fixture factual sentence.'),[])
+        calls=engine.client.models.generate_content.call_args_list
+        self.assertEqual([c.kwargs['model'] for c in calls],['gemini-3.5-flash','gemini-3.5-flash-lite'])
+        self.assertEqual(calls[0].kwargs['config'].http_options.timeout,6000)
+        self.assertEqual(calls[1].kwargs['config'].http_options.timeout,3000)
+
+    def test_transport_timeout_can_use_fallback(self):
+        import httpx
+        engine=self.engine(None); engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=[httpx.ReadTimeout('private transport details'),NS(text='{"claims":[]}')]
+        with patch('research.time.sleep'):
+            self.assertEqual(engine.extract(text='Fixture factual sentence.'),[])
+        self.assertEqual(engine.client.models.generate_content.call_count,2)
+
+    def test_configured_fallback_is_not_called_for_permanent_authentication_failure(self):
+        from google.genai.errors import ClientError
+        engine=self.engine(None); engine.fallback_model='gemini-3.5-flash-lite'
+        engine.client.models.generate_content.side_effect=ClientError(403,{'error':{'message':'Fixture denied'}})
+        with patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture factual sentence.')
+        self.assertEqual(engine.client.models.generate_content.call_count,1)
+        sleep.assert_not_called()
+
+    def test_grounding_timeout_reserves_time_for_fallback(self):
+        from google.genai import types
+        engine=self.engine(NS(text='fixture'))
+        engine.fallback_model='gemini-3.5-flash-lite'
+        engine._generate(stage='grounded_search',contents='Fixture',config=types.GenerateContentConfig())
+        self.assertEqual(engine.client.models.generate_content.call_args.kwargs['config'].http_options.timeout,14000)
 
     def test_persistent_capacity_error_stops_after_two_attempts(self):
         from google.genai.errors import ClientError
@@ -277,6 +396,15 @@ class APITests(unittest.TestCase):
             if provider_status != 400:
                 self.assertIn('Retry-After', response.headers)
 
+    def test_transport_timeout_returns_actionable_sanitized_retry_error(self):
+        import httpx
+        self.engine.extract.side_effect=httpx.ReadTimeout('private provider request details')
+        response=self.client.post('/check',json={'claim':'Fixture factual sentence.'})
+        self.assertEqual(response.status_code,503)
+        self.assertEqual(response.json['code'],'PROVIDER_UNAVAILABLE')
+        self.assertEqual(response.headers['Retry-After'],'30')
+        self.assertNotIn('private provider',response.text)
+
     def test_rate_limit(self):
         for _ in range(6): self.client.post('/check', json={'claim':'Fixture claim text'})
         response = self.client.post('/check', json={'claim':'Fixture claim text'})
@@ -294,11 +422,24 @@ class APITests(unittest.TestCase):
         self.assertEqual(self.engine.extract.call_count, 2)
         self.assertEqual(self.engine.check.call_count, 2)
 
+    def test_legacy_fact_citations_exclude_model_candidates(self):
+        self.engine.check.return_value[0]['sources'] = [dict(id='g',url='https://grounding.example/',title='Grounded',discovery_method='grounding'),dict(id='c',url='https://candidate.example/',title='Fetched candidate',discovery_method='research_candidate')]
+        response = self.client.post('/check',json={'claim':'Fixture claim text'})
+        self.assertEqual([s['id'] for s in response.json['sources']], ['g'])
+        self.assertEqual(len(response.json['results'][0]['sources']), 2)
+
     def test_health(self):
         self.assertEqual(self.client.get('/api/health').status_code, 200)
 
 
 class PublisherPolicyTests(unittest.TestCase):
+    def test_inspection_reports_robots_reason_without_inventing_contents(self):
+        def denied(url): raise InspectionFailure('ROBOTS_DISALLOWED', 'Automated inspection disallowed')
+        source = inspect_source(dict(id='g',url='https://grounding.example/'), denied)
+        self.assertEqual(source['inspection_error_code'], 'ROBOTS_DISALLOWED')
+        self.assertNotIn('text_excerpt', source)
+        self.assertEqual(source['inspection_status'], 'unverified')
+
     def test_disallowed_robots_prevents_article_request(self):
         response = Mock(status=200)
         response.getheader.side_effect = lambda key, default=None: {'Content-Type': 'text/plain', 'Content-Encoding': 'identity'}.get(key, default)

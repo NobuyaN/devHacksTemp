@@ -53,13 +53,10 @@
 @keyframes mikata-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { #mikata-extension-root *, #mikata-extension-root *::before { animation: none !important; transition: none !important; } }
 
-/* Markers are inserted into article text, outside the Mikata UI root. */
-.mikata-claim-highlight { cursor:pointer !important; color:inherit !important; background:transparent !important; border:0 !important; border-bottom:2px dotted #6b9e8a !important; border-radius:1px; text-decoration:none !important; -webkit-box-decoration-break:clone; box-decoration-break:clone; outline-offset:4px; }
-.mikata-claim-highlight:hover, .mikata-claim-highlight:focus-visible { background:#e8f3e8 !important; }
-.mikata-claim-highlight.is-context { border-bottom-color:#d49e51 !important; background:#fff1d633 !important; }
-.mikata-claim-highlight.is-contradicted { border-bottom-color:#bc7369 !important; background:#f8e0dc55 !important; }
-#mikata-extension-root .mk-scan-toast { position:fixed; z-index:2147483646; left:18px; bottom:18px; max-width:min(380px,calc(100vw - 36px)); display:flex; gap:9px; align-items:center; background:#fffdf7; color:#426a56; border:1px solid #e4e9dc; border-radius:18px; box-shadow:0 10px 32px rgba(46,67,48,.15); padding:11px 12px; font-size:12px; font-weight:650; }
-#mikata-extension-root .mk-scan-toast[hidden] { display:none !important; }
-#mikata-extension-root .mk-toast-symbol { background:#e1f1e3; color:#4b8067; padding:4px 8px; border-radius:10px; font-size:17px; }
-#mikata-extension-root .mk-toast-message { flex:1; line-height:1.45; }
-#mikata-extension-root #mk-toast-close { border:0; background:transparent; color:#849a87; font-size:18px; padding:0 3px; }
+/* English / Japanese segmented language switch. */
+#mikata-extension-root .mikata-language-switch { display:flex; justify-content:flex-end; gap:2px; margin:10px 0; }
+#mikata-extension-root .mikata-language-switch button { width:auto; padding:5px 11px; border:1px solid #d1dfd3; border-radius:8px; background:#fffdf7; color:#416553; font:inherit; font-size:12px; cursor:pointer; }
+#mikata-extension-root .mikata-language-switch button[aria-pressed="true"] { background:#336952; border-color:#336952; color:white; }
+#mikata-extension-root .mikata-language-switch button:focus-visible { outline:3px solid #e9b764; outline-offset:2px; }
+
+#mikata-extension-root .mk-language-control { padding:0 20px; }

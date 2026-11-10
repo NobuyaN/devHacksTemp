@@ -1,3 +1,5 @@
+> **Current release (0.4.0): manual checks only.** Use the English / 日本語 switch in the popup, sidebar or dashboard. Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.4.0 beta release notes](docs/releases/v0.4.0-beta.1.md).
+
 # DevFest Hackathon 2026 提出用リポジトリ
 
   DevFest Hackathon 2026 のチームの **最終提出用** リポジトリです。提出期限までに、作品のコードと資料をこのリポジトリに置いてください。
@@ -37,8 +39,10 @@
 
   [MIT License](LICENSE) です。ほかのライセンスにしたいときは、LICENSE を書き換えてください。
 
-## SourceLens backend implementation
+## Mikata backend implementation
 
 The backend now includes structured multi-claim and image research, deterministic source-dependency analysis, safe article inspection, and an additive `/check` compatibility response. The separate dashboard and Firebase rewrite configuration are under `landing/` and `firebase.json`.
 
 See [backend/README.md](backend/README.md) for exact setup, test, API and deployment commands, IAM prerequisites and current verification limits. Existing instructions and design-preview behavior still apply. Cloud deployment and live validation are pending; fixture tests are not live verified fact checks.
+
+For a shared service usable from other Chrome profiles/devices, see [the authenticated public-beta plan](deployment/PUBLIC_BETA.md). The release builder packages a fixed endpoint; users need a Mikata account, not Google Cloud tools. The shared service is deployed; Chrome Web Store publication remains separate.

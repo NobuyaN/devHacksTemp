@@ -1,11 +1,15 @@
 /** Wire contracts for /api/check and /api/analyze-image; extension legacy fields remain additive. */
+export type Language = 'en' | 'ja';
+export interface CheckRequest { claim?: string; text?: string; source_title?: string; language?: Language }
+export interface AnalyzeImageRequest { image_base64: string; mime_type: 'image/png' | 'image/jpeg' | 'image/webp'; language?: Language }
 export type Assessment = 'SUPPORTED' | 'CONTRADICTED' | 'MIXED' | 'INSUFFICIENT_EVIDENCE' | 'NOT_FACT_CHECKABLE';
 export interface Claim { id: string; text: string; checkable: boolean; reason: string }
 export interface Citation { url: string; excerpt: string; attributed: boolean; syndicated: boolean; context_sentence: string }
 export interface EvidenceSource {
   id: string; url: string; title: string; grounding_chunk_indices: number[];
+  discovery_method?: 'grounding' | 'research_candidate';
   publisher: string | null; published_at: string | null;
-  inspection_status: 'inspected' | 'unverified'; inspection_error: string | null;
+  inspection_status: 'inspected' | 'unverified'; inspection_error: string | null; inspection_error_code: string | null;
   resolved_url?: string; canonical_urls: string[]; citations: Citation[];
   original_evidence: { identifier: string; author: string; methodology_excerpt: string | null } | null;
   content_hash?: string; text_excerpt?: string;
@@ -29,6 +33,7 @@ export interface IndependenceAnalysis {
 }
 export interface FactCheckResult {
   claim: Claim; assessment: Assessment; timings_ms: Record<string, number>; evidence_summary: string; explanation: string;
+  inspection_summary: { attempted_pages: number; fetched_pages: number; candidate_pages_inspected: number; failure_reasons: Record<string, number> };
   sources: EvidenceSource[]; independence: IndependenceAnalysis;
   /** Original Vertex grounding metadata; retained indices refer to grounding_chunks. */
   grounding: { grounding_chunks?: unknown[]; grounding_supports?: unknown[];
@@ -36,8 +41,9 @@ export interface FactCheckResult {
   limitations: string[];
 }
 export interface CheckResponse {
-  schema_version: '1.0'; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
+  schema_version: '1.0'; language?: Language; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
+  quota?: { daily_limit: number; remaining: number; resets_at: string };
   status: 'supported' | 'contradicted' | 'needs_context' | 'insufficient_evidence';
   summary: string; detail: string; sources: EvidenceSource[];
 }
-export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'CLOUD_AUTH_ERROR' | 'PROVIDER_RATE_LIMITED' | 'PROVIDER_UNAVAILABLE' | 'RESEARCH_REQUEST_REJECTED' }
+export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'CLOUD_AUTH_ERROR' | 'PROVIDER_RATE_LIMITED' | 'PROVIDER_UNAVAILABLE' | 'RESEARCH_REQUEST_REJECTED' | 'AUTH_REQUIRED' | 'INVALID_SESSION' | 'EMAIL_NOT_VERIFIED' | 'AUTH_UNAVAILABLE' | 'QUOTA_UNAVAILABLE' | 'DAILY_QUOTA_EXCEEDED' | 'SERVICE_DAILY_QUOTA_EXCEEDED' }

@@ -1,10 +1,10 @@
-# SourceLens backend handoff
+# Mikata backend handoff
 
-SourceLens extends the repository's Flask + Vertex AI starter and preserves Mikata's `/check` contract and extension design. No OpenAI services or browser API keys are used. Existing contributor/security instructions still apply.
+Mikata extends the repository's Flask + Vertex AI starter and preserves Mikata's `/check` contract and extension design. No OpenAI services or browser API keys are used. Existing contributor/security instructions still apply.
 
 ## Run from a fresh clone
 
-Requires Python 3.13, Node 22+ (contract checks only), and Google Cloud CLI for live research. The web dashboard is plain HTML/JS and has no bundling step.
+Requires Python 3.13, Node 22.13+ or 24+ (contract and DOM checks only), and Google Cloud CLI for live research. The web dashboard is plain HTML/JS and has no bundling step.
 
 ```sh
 python3.13 -m venv backend/.venv
@@ -30,10 +30,10 @@ backend/.venv/bin/gunicorn --chdir backend --bind 127.0.0.1:8080 --workers 1 --t
 In another terminal, preview the dashboard:
 
 ```sh
-python3 -m http.server 5000 --directory landing
+python3 -m http.server 5000 --bind 127.0.0.1 --directory landing
 ```
 
-Open `http://localhost:5000`. It calls `http://localhost:8080/api/*` locally. On Firebase it calls same-origin `/api/*`, rewritten by `firebase.json` to `sourcelens-api` in `asia-northeast1`. Set the extension's existing **Connect your AI backend** field to `http://localhost:8080` or the approved Cloud Run URL; no manifest permissions change is required. Auto Scan remains opt-in.
+Open `http://127.0.0.1:5000`. It calls `http://localhost:8080/api/*` locally. On Firebase it calls same-origin `/api/*`, rewritten by `firebase.json` to `sourcelens-api` in `asia-northeast1`. Set the extension's existing **Connect your AI backend** field to `http://localhost:8080` or the approved Cloud Run URL; no manifest permissions change is required. Auto Scan remains opt-in.
 
 `backend/.env.example` documents all runtime variables. `.env` is not automatically loaded; export values in the terminal. `PORT` defaults to 8080. Health reports configuration presence, not successful Vertex authentication.
 
@@ -41,8 +41,8 @@ Open `http://localhost:5000`. It calls `http://localhost:8080/api/*` locally. On
 
 1. `main.py` validates JSON, image signatures and sizes; enforces coarse per-process limits and two active research requests.
 2. `research.py` uses Gemini on Vertex AI to extract at most three separate claims, including image input. Opinion/satire/unverifiable statements are marked non-checkable. Image bytes are passed as multimodal input, never fetched from a user URL.
-3. Each checkable claim gets one grounded Gemini call (up to three in parallel). It requests primary and contradicting evidence. Only Google grounding chunks supply source URLs; model-authored URLs are ignored. Missing citation supports force `INSUFFICIENT_EVIDENCE`.
-4. `inspection.py` normalizes/deduplicates discovery URLs and inspects up to six per claim concurrently. Redirect aliases are deduplicated after inspection. It records visible text, links, explicit attribution, canonical hints, publisher/date metadata and primary-study DOI metadata. Missing dates/publishers remain null. No scripts execute.
+3. Each checkable claim gets one grounded Gemini call (up to three in parallel). It requests primary and contradicting evidence. Only Google grounding chunks supply factual citation URLs. The same response can propose at most two direct publisher URLs as separate inspection candidates; these are not grounding attributions and are not promoted into the evidence graph unless their actual page can be fetched. Unknown candidate URLs are omitted, and failed candidates are summarized by failure reason without being presented as evidence sources. Missing citation supports force `INSUFFICIENT_EVIDENCE`.
+4. `inspection.py` normalizes/deduplicates discovery URLs and attempts up to eight pages per claim concurrently (at most six grounding sources and two direct publisher candidates). Redirect aliases are deduplicated after inspection. It records visible text, links, explicit attribution, canonical hints, publisher/date metadata and primary-study DOI metadata. Missing dates/publishers remain null. No scripts execute.
 5. `dependencies.py` produces stable nodes/edges and documented attribution groups. Explicit attribution, syndication language, and artifact identifiers support confirmed edges, each with a quote and supporting URL. Similar text, canonical hints and different domains cannot establish dependency or independence. Overlapping text shingles produce an unresolved possible-duplication/syndication hint; they never merge origins or create confirmed dependency edges. Content hashes are hints only.
 6. A narrow positive rule recognizes inspected primary studies documenting independent replication with new data, different DOI identities/authors, and a link to the inspected prior study. It counts only a mutually documented subset; A–B and B–C do not establish A–C. This is verification of published methodological statements, not forensic verification of raw data. Ambiguous relationships stay unresolved; a separate Gemini interpretation pass can add labeled unverified hypotheses to those pairs, but cannot change edges, counts or verification status. No LLM guess becomes a confirmed edge.
 7. Factual assessment is returned separately from provenance counts. Counts never determine the verdict. Multi-claim inputs have no aggregate verdict; legacy fields are neutral.
@@ -94,15 +94,17 @@ See `contracts/api.ts` for `Claim`, `FactCheckResult`, `EvidenceSource`, `Source
 
 Errors are `{ "error": "Readable message", "code": "INVALID_INPUT" }`: 400 invalid input, 413 oversized JSON, 429 rate limit (`Retry-After: 60`), 503 unavailable/busy/upstream timeout. No private model bodies are exposed or logged. Unknown routes/methods use structured HTTP errors. No persistence of selected text or uploaded images is implemented.
 
+The legacy `sources` field contains only grounding citations; structured per-claim `sources` also includes successfully fetched publisher candidates labeled `discovery_method: research_candidate`. A fetched candidate establishes page availability, not claim relevance, grounding attribution, origin identity or independence. `inspection_summary` reports bounded attempts, fetched pages, candidate pages inspected and categorized failure reasons.
+
 Grounding metadata is retained in full with original chunk indices, supports, web search queries, and `search_entry_point.rendered_content`. The dashboard and extension render Google Search suggestions inside isolated sandboxed frames without scripts; citations link to returned HTTPS sources. Extension brokerage preserves the full `results` array. Page CSP can block injected attribution frames; verify on demo pages. Review Google's required display terms before wider distribution: [grounding documentation](https://firebase.google.com/docs/ai-logic/grounding-google-search).
 
 ## Safety bounds and limitations
 
 HTTPS/443 only; no credentials in URLs, private/reserved/link-local/loopback destinations, or automatic unchecked redirects. All DNS answers must be global; connections are pinned to a checked IP with original-host TLS verification. Every redirect is revalidated. Four-hop request cap, 750 KB response cap, identity encoding, 5-second article deadline, 1-second DNS wait, bounded resolver workers. Failed/unsupported/PDF/paywalled/JS-rendered sources remain unverified; authentication and access restrictions are not bypassed. Robots.txt is checked conservatively (404/410 means no declared policy; unavailable/disallowed policies leave the article unverified). Publisher licensing permissions still require review before broader crawling.
 
-Extraction/discovery SDK attempts have timeouts capped at 16 seconds, with at most one delayed retry for HTTP 429/500/502/503/504 inside total stage budgets of 10 seconds for extraction and 22 seconds for search; an optional ambiguity interpretation call per claim has a 6-second timeout; parallel claim research fits the Firebase 60-second proxy budget under normal operation. Client timeout is 55 seconds; pathological transport/platform delays can still cause a neutral timeout. Gemini can issue multiple internal searches in one grounded call: at most eleven model attempts per request including bounded retries (two extraction attempts, up to six grounded-search attempts and three optional ambiguity calls); provider internal searches are not a guaranteed search or dollar cap. Model text and website metadata may be malicious or inaccurate; explicit attribution rules do not prove a claim relevant, true, or independently audited. English attribution/replication rules miss other languages and many valid independent investigations. Source dates are reported, not used to invent causal chronology. No ambiguous relationship is promoted by Gemini.
+Extraction/discovery SDK attempts share total stage budgets of 10 seconds for extraction and 22 seconds for search, with at most one delayed retry for HTTP 429/500/502/503/504; an optional ambiguity interpretation call per claim has a 6-second timeout; parallel claim research fits the Firebase 60-second proxy budget under normal operation. Client timeout is 55 seconds; pathological transport/platform delays can still cause a neutral timeout. Gemini can issue multiple internal searches in one grounded call: at most eleven model attempts per request including bounded retries (two extraction attempts, up to six grounded-search attempts and three optional ambiguity calls); provider internal searches are not a guaranteed search or dollar cap. Model text and website metadata may be malicious or inaccurate; explicit attribution rules do not prove a claim relevant, true, or independently audited. English attribution/replication rules miss other languages and many valid independent investigations. Source dates are reported, not used to invent causal chronology. No ambiguous relationship is promoted by Gemini.
 
-Limits: six POST requests per remote address per minute, twelve globally per process, two active research requests, three claims, six articles per claim. Forwarded IP headers are not trusted, so proxy callers can share an IP quota. These are coarse demo guards; restarts/multiple instances reset counters, and Cloud Run instance limits are not spending caps. There is no authenticated user flow, durable quota or production abuse protection. Keep Cloud Run private until an explicitly approved, monitored demo; do not treat CORS as authentication.
+Limits: six POST requests per authenticated user (remote address in local mode) per minute, twelve globally per process, two active research requests, three claims, six grounding articles plus two publisher candidates per claim. Forwarded IP headers are not trusted. These in-memory guards supplement the public-mode Firebase authentication and atomic Firestore daily quotas described below; they reset on process restarts. Cloud Run instance limits and request quotas are not spending caps. The shared beta still needs monitoring and stronger abuse controls before a larger commercial rollout; CORS is not authentication.
 
 ## Tests and build
 
@@ -154,53 +156,13 @@ IAM handoff (grant only as needed, with approval):
 
 Reference: [source deployment roles](https://docs.cloud.google.com/run/docs/deploying-source-code), [build service identity](https://docs.cloud.google.com/run/docs/configuring/services/build-service-account).
 
-## Deployment commands — approval required, not executed
+## Deployment — use the authenticated public-beta runbook
 
-After preflight and explicit approval for billable API enablement, runtime/build identity creation, IAM grants and deployment, an administrator provisions the two identities and minimum roles above. Provisioning commands for the approved administrator (replace `DEPLOYER_EMAIL` with the verified teammate account; do not run until approved):
+The local backend is still compatible with the existing `/check` contract. A Cloud Run deployment now requires Firebase authentication and durable quota reservations; it cannot start with `AUTH_MODE=local` or emulator bypass settings. Do not use the old unauthenticated starter deployment command for a shared service.
 
-```sh
-export DEPLOYER_EMAIL=teammate@example.com
-gcloud iam service-accounts create sourcelens-runtime --project "$PROJECT_ID"
-gcloud iam service-accounts create sourcelens-build --project "$PROJECT_ID"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com" --role=roles/aiplatform.user
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com" --role=roles/run.builder
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/run.sourceDeveloper
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/serviceusage.serviceUsageConsumer
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/firebasehosting.admin
-gcloud iam service-accounts add-iam-policy-binding "sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com" --project "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/iam.serviceAccountUser
-gcloud iam service-accounts add-iam-policy-binding "sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com" --project "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/iam.serviceAccountUser
-```
+Use [deployment/PUBLIC_BETA.md](../deployment/PUBLIC_BETA.md) for the concrete resources, least-privilege IAM, service configuration, named quota database, Auth-only client key, release packaging and deployment commands. [deployment/public.env.yaml](../deployment/public.env.yaml) declares the deployed runtime limits. Future billable changes, public releases and Store publication require the owner's explicit approval.
 
-The deployer making a service public also needs `run.services.setIamPolicy` through an appropriately scoped admin role; do not grant project-wide Owner/Editor. Commands below assume the approved identities exist:
-
-```sh
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com aiplatform.googleapis.com firebasehosting.googleapis.com \
-  --project "$PROJECT_ID"
-export RUNTIME_SA="sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
-export BUILD_SA="sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com"
-gcloud run deploy sourcelens-api --source backend \
-  --project "$PROJECT_ID" --region asia-northeast1 \
-  --service-account "$RUNTIME_SA" --build-service-account "projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
-  --no-allow-unauthenticated --max-instances 1 --min-instances 0 \
-  --concurrency 4 --timeout 55 --memory 512Mi --cpu 1 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-3.5-flash"
-export API_URL="$(gcloud run services describe sourcelens-api --project "$PROJECT_ID" --region asia-northeast1 --format='value(status.url)')"
-curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" "$API_URL/api/health"
-```
-
-Private Cloud Run will not accept anonymous extension requests or the public Firebase rewrite. Only after explicit public-demo approval and acceptance of the current coarse abuse controls:
-
-```sh
-gcloud run services add-iam-policy-binding sourcelens-api \
-  --project "$PROJECT_ID" --region asia-northeast1 \
-  --member=allUsers --role=roles/run.invoker
-firebase deploy --only hosting --project "$PROJECT_ID"
-```
-
-Firebase must already be attached to the **same verified project** with a default Hosting site; initialize that through the approved Firebase console if missing. `--project` makes an unverified `.firebaserc` unnecessary. `firebase.json` is committed and pins the Cloud Run revision using `pinTag`. Deploy backend first, Hosting second; redeploy Hosting to move its pin after a later backend release. [Firebase Cloud Run rewrite documentation](https://firebase.google.com/docs/hosting/cloud-run).
-
-Verify the actual published dashboard by submitting a low-cost test, inspecting `/api/check` in browser Network, opening citation links, checking Search suggestions and provenance quotes, and confirming Cloud Run logs contain no private content. Test the extension separately with the returned Cloud Run URL. No deployment, credit-eligibility check, or interactive Chrome end-to-end test has been performed here. A controlled live Gemini 3.5 Flash check completed with six grounded sources and nine grounding supports; none of those article pages was successfully inspected, so their independence remained unresolved. This is a connectivity check, not a verification-accuracy benchmark. Docker is unavailable here, so the container image build is also pending.
+Public release users do not install CLIs or run localhost services. Their browser package includes the shared endpoint and Mikata account sign-in. Local development remains opt-in with a manually configured endpoint. Firebase/Firestore authentication and hosted research have been live-tested; interactive Chrome installation and email verification remain a manual release check. Controlled fixtures do not establish model accuracy.
 
 ## Model availability troubleshooting
 
@@ -231,3 +193,56 @@ Extraction and grounded search each retry at most once after a randomized 1–1.
 Exhausted capacity/server failures return `PROVIDER_RATE_LIMITED` or `PROVIDER_UNAVAILABLE` with HTTP 503 and `Retry-After: 30`. HTTP 400 is `RESEARCH_REQUEST_REJECTED`; authentication/model errors keep their existing codes. Provider bodies and selected text are not exposed. Google recommends bounded backoff for transient capacity failures: [Vertex API errors](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/api-errors).
 
 A later controlled extraction plus grounded-search diagnostic succeeded in 10.4 seconds, but the preceding user-reported failure was not reproduced, so its original provider status remains unknown. Passing a later request does not establish that intermittent failures cannot recur.
+
+## Why grounding can show zero inspected articles
+
+A live read of `https://vertexaisearch.cloud.google.com/robots.txt` showed `Disallow: /grounding-api-redirect` and `Disallow: /grounding-redirect`. Grounding citations commonly use that Google redirect service. The fetcher respects this policy; it does not follow those URLs by bypassing robots rules. Such nodes now expose `ROBOTS_DISALLOWED` and a readable reason instead of a generic failure.
+
+Direct NASA URLs were retrievable in a controlled diagnostic. Large pages, PDF-only sources, inaccessible robots policies, bot walls and timeouts can still prevent inspection. The grounded research response now additionally requests exact direct publisher candidates; titles for promoted candidates come from fetched HTML, not model guesses. Failed/unknown/duplicate candidates are not counted as inspected or independent. Original grounding links/indices/Search suggestions are retained separately. Candidate retrieval is bounded and SSRF protections apply unchanged.
+
+Positive independence remains narrow: the current rule requires inspected primary-study metadata and a published independent-replication/new-data statement linked to the other inspected study. This is not broad verification of independent authorship, reporting or datasets. Different domains, reachable pages, separate DOI links and model suggestions still do not establish independence. The system should not be advertised as a generally validated independent-source detector. A confirmed dependency based on a quote/link is a more attainable result for news articles; unresolved is an explicit limitation, not a hidden independent-source vote.
+
+Run `npm run test:extension` for the broker and DOM fixture tests. DOM tests simulate per-site enablement, two-check limits, preview behavior, source-backed warning clicks, supported results, missing citations, failed requests and password-page exclusion; they do not replace an interactive test in the user's real Chrome profile.
+
+Live retrieval validation after the candidate change: a controlled Earth-orbit grounded search returned six grounding sources and one direct candidate; NASA’s `Earth Fact Sheet` at `https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html` was actually fetched and inspected. This verifies publisher retrieval for that page only. No independent-origin conclusion was inferred from availability. A prior diagnostic hit a provider deadline; source access and model response times remain variable.
+
+## Public authentication and durable quotas
+
+`access.py` verifies Firebase ID tokens for the configured project, checks revocation/user-disabled state and requires verified email. `AUTH_MODE=firebase` enables it locally for integration testing; Cloud Run forces this mode. Research POST routes are gated before model construction. `AUTH_REQUIRED`/`INVALID_SESSION` use 401, `EMAIL_NOT_VERIFIED` uses 403, and exhausted daily quotas use 429. Verification/storage failures fail closed with 503 and never start an AI request. The public `/api/health` reports whether authentication is required without exposing tokens or account data.
+
+`QUOTA_DATABASE` defaults to the isolated named Firestore database `sourcelens`. `DAILY_USER_LIMIT=100` and `DAILY_GLOBAL_LIMIT=100` are the deployed beta limits. Two document counters are read and incremented in one transaction before AI work. UTC day boundaries are returned in `quota.resets_at`; successful responses include the remaining per-user allowance. Requests reserved before an eventual provider failure still count. Quota calls have a bounded caller wait; late commits can consume an allowance without starting research. In-process rate/concurrency guards supplement this durable limit and are not the global budget mechanism.
+
+The quota store contains hashed identifiers, counts and an expiration timestamp, not selected text, images or article bodies. Client Firestore rules deny all reads/writes; the runtime's IAM condition scopes its database access. Configure TTL before public deployment; a timestamp alone does not enable deletion. Firebase Authentication stores the user account separately. Account verification/password reset/deletion are initiated by the user; controlled tests do not send emails or create accounts.
+
+The extension calls Firebase Auth REST endpoints directly, stores sign-in tokens/email in trusted session storage, and sends tokens only to the pinned release API. Passwords are not saved. No remote SDK code is loaded into the extension. A public Firebase Auth API identifier is permitted in the release; it must be restricted to Authentication/Token services and must not be a Gemini/Vertex credential. See [Firebase API keys](https://firebase.google.com/docs/projects/api-keys) and [Firebase token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens).
+
+Public request processing duration includes server-side authentication and quota verification. Caller-side token refresh and network transit are not part of that server measurement. Synthetic webpage clicks cannot trigger paid highlight/retry research; privileged popup messages and trusted user gestures still work, and opening an already fetched warning does not repeat research.
+
+
+## Shared beta deployment record (2026-11-10)
+
+The approved Cloud Run backend and Firebase Hosting are deployed. Users install from https://saladmanderdevhacks.web.app/install.html and create a verified Mikata account; no Google Cloud tools or local server are required. See [the deployment runbook](../deployment/PUBLIC_BETA.md) for rebuild/deploy commands and actual live validation. Public distribution is a ZIP for Load unpacked, not a Chrome Web Store listing.
+
+Publisher connections prefer checked public IPv4 addresses and try at most two checked addresses within the existing five-second deadline. This avoids selecting an unreachable IPv6 address first on Cloud Run. All DNS results must still be public; every redirect and robots policy is checked. No dependency or independence conclusion follows from reachability alone.
+
+
+## Recovery from transient Google research errors
+
+The deployed main model is `GEMINI_MODEL=gemini-3.5-flash`; `GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite` configures a second Gemini model for the existing single retry. The fallback is optional: omit/blank it to retry the main model as before. Use a model compatible with the request's Search grounding and thinking settings; the deployed pair was tested in this project. No competing LLM API or client API key is used.
+
+Extraction and grounded search retain their 10/22-second total stage budgets. With a fallback configured, the first call is capped at 6/14 seconds, leaving time for one delayed fallback attempt. HTTP 429/500/502/503/504 and transport timeouts are eligible; permanent permission/configuration errors are not retried. Retry-After and remaining stage time still gate retries. No extra attempt is added, so the existing model-attempt and server-side quota bounds remain. A fallback cannot guarantee recovery if both Google models are unavailable.
+
+Grounded research explicitly uses LOW thinking on the tested 3.5 Flash/Flash-Lite pair; extraction keeps its guarded MINIMAL setting. Source inspection, citation adequacy checks and deterministic independence rules are unchanged. A fallback response without adequate grounding remains insufficient evidence. Stage/model/attempt/status failures are logged without prompts, images, model response bodies, tokens or email. Exhausted transport deadlines return a sanitized `PROVIDER_UNAVAILABLE` with Retry-After.
+
+References: [Google API errors](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/models/api-errors), [thinking settings](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking).
+
+
+## English and Japanese output
+
+`POST /api/check`, `/check` and `/api/analyze-image` accept optional `"language": "en" | "ja"`; omitted language defaults to English. Unsupported values return 400 before quota reservation or model calls. The response echoes `language`, while assessment enums, relationship types, identifiers, original citations and the schema version remain unchanged. Extraction reasons and research summaries/explanations request the chosen language; original claim text and evidence quotes are preserved. Deterministic error codes and raw provenance metadata retain their wire format. No translation provider, extra model stage or additional research attempt was introduced.
+
+```json
+{"claim":"地球は太陽の周りを公転しています。","language":"ja"}
+```
+
+The bundled UI localization helper is canonical in `extension/i18n.js`, with a checked identical mirror in `landing/i18n.js` for build-free local development. Update both together (`cp extension/i18n.js landing/i18n.js`). Release packaging always copies the canonical helper. Extension language choices use `chrome.storage.local.mikataLanguage`; dashboard choices use origin-local storage. Account tokens remain in session storage.

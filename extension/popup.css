@@ -50,24 +50,7 @@ footer span { color: #d8a08e; font-size: 13px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-/* Cozy, opt-in per-site Auto Scan switch */
-.autoscan { background: linear-gradient(135deg,#e5f1e5,#f1f5e9); border:1px solid #dbead7; border-radius:18px; padding:12px 13px; margin-bottom:13px; }
-.auto-top { display:flex; align-items:center; gap:9px; }
-.auto-icon { display:grid; place-items:center; width:34px; height:34px; background:#cde6d5; border-radius:12px; color:#568575; font-size:22px; flex-shrink:0; }
-.auto-copy { flex:1; min-width:0; }
-.auto-title { font-size:13px; font-weight:850; color:#315846; }
-.new-pill { display:inline-block; vertical-align:2px; margin-left:4px; padding:1px 6px; background:#fff2ce; color:#a27d3e; font-size:9px; border-radius:99px; }
-.auto-subtitle { font-size:10px; color:#718a7b; }
-.auto-note { font-size:10px; color:#5e806c; font-weight:700; margin:9px 0 0; }
-.auto-privacy { font-size:10px; line-height:1.5; color:#819586; margin:5px 0 0; }
-.auto-switch { cursor:pointer; position:relative; flex-shrink:0; display:block; width:42px; height:25px; }
-.auto-switch input { position:absolute; opacity:0; width:100%; height:100%; margin:0; z-index:2; cursor:pointer; }
-.auto-track { width:42px; height:25px; border-radius:99px; background:#c3d4c8; display:block; transition:background .18s; position:relative; }
-.auto-track::after { content:''; position:absolute; top:3px; left:3px; border-radius:50%; width:19px; height:19px; background:#fff; box-shadow:0 1px 4px #46685833; transition:transform .18s; }
-.auto-switch input:checked + .auto-track { background:#4e8972; }
-.auto-switch input:checked + .auto-track::after { transform:translateX(17px); }
-.auto-switch input:focus-visible + .auto-track { outline:3px solid #e7b659; outline-offset:2px; }
-.auto-switch input:disabled + .auto-track { opacity:.45; cursor:not-allowed; }
+.account-privacy { font-size:10px; line-height:1.5; color:#819586; margin:5px 0 0; }
 
 /* TODO(BRAND): Proposed hand-drawn logo, not a finalized asset.
    Replace logo-candidate.png after team design review; do not change the Chrome
@@ -76,3 +59,9 @@ footer span { color: #d8a08e; font-size: 13px; }
 .logo-candidate { display:block; object-fit:contain; object-position:left center; width:183px; height:91px; margin:-12px 0 -8px -10px; }
 .brand-draft .japanese { margin-top:0; }
 .draft-tag { font-size:8px; border:1px solid #e6d4b9; background:#fff4e5; color:#997343; border-radius:99px; padding:1px 5px; white-space:nowrap; }
+
+/* English / Japanese segmented language switch. */
+.mikata-language-switch { display:flex; justify-content:flex-end; gap:2px; margin:10px 0; }
+.mikata-language-switch button { width:auto; padding:5px 11px; border:1px solid #d1dfd3; border-radius:8px; background:#fffdf7; color:#416553; font:inherit; font-size:12px; cursor:pointer; }
+.mikata-language-switch button[aria-pressed="true"] { background:#336952; border-color:#336952; color:white; }
+.mikata-language-switch button:focus-visible { outline:3px solid #e9b764; outline-offset:2px; }

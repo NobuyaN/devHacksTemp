@@ -12,6 +12,7 @@ REQUIRED = [
 ]
 for name in REQUIRED:
     assert (ROOT / name).is_file(), f"Missing: {name}"
+assert (ROOT / "extension/i18n.js").read_bytes() == (ROOT / "landing/i18n.js").read_bytes(), "Local dashboard i18n mirror must match extension/i18n.js"
 manifest = json.loads((ROOT / "extension/manifest.json").read_text())
 assert manifest["manifest_version"] == 3
 assert manifest["background"]["service_worker"] == "background.js"

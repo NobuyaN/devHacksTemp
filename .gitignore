@@ -32,3 +32,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# Firebase CLI deploy cache (not source)
+.firebase/

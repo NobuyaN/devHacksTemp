@@ -1,4 +1,4 @@
-# SourceLens dashboard
+# Mikata dashboard
 
 A separate static dashboard for text/image research, source cards, inspectable relationship evidence, raw graph data and Google Search attribution. The existing extension design is preserved.
 

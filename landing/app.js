@@ -55,7 +55,7 @@ form.addEventListener('submit', async event => {
     const headers = { 'Content-Type': 'application/json' };
     if (publicConfig.authRequired) {
       const token = await SourceLensAuth.token();
-      if (!token) throw new Error('Sign in to SourceLens first.');
+      if (!token) throw new Error('Sign in to Mikata first.');
       headers.Authorization = `Bearer ${token}`;
     }
     const response = await fetch(base + route, { method: 'POST', headers, body: JSON.stringify(payload), signal: controller.signal });
@@ -67,7 +67,7 @@ form.addEventListener('submit', async event => {
 
 if (publicConfig.authRequired) {
   const account = document.createElement('section');
-  account.innerHTML = '<h2>Your SourceLens account</h2><p id="account-note" role="status"></p><form id="account-form"><label for="account-email">Email</label><input id="account-email" type="email" required autocomplete="email"><label for="account-password">Password</label><input id="account-password" type="password" required minlength="8" maxlength="128" autocomplete="current-password"><button>Sign in</button> <button type="button" id="account-create">Create account</button> <button type="button" id="account-reset">Reset password</button></form><p><button id="account-refresh" type="button">Refresh verified session</button> <button id="account-verify" type="button">Resend verification email</button> <button id="account-signout" type="button">Sign out</button> <button id="account-delete" type="button">Delete account</button></p>';
+  account.innerHTML = '<h2>Your Mikata account</h2><p id="account-note" role="status"></p><form id="account-form"><label for="account-email">Email</label><input id="account-email" type="email" required autocomplete="email"><label for="account-password">Password</label><input id="account-password" type="password" required minlength="8" maxlength="128" autocomplete="current-password"><button>Sign in</button> <button type="button" id="account-create">Create account</button> <button type="button" id="account-reset">Reset password</button></form><p><button id="account-refresh" type="button">Refresh verified session</button> <button id="account-verify" type="button">Resend verification email</button> <button id="account-signout" type="button">Sign out</button> <button id="account-delete" type="button">Delete account</button></p>';
   form.before(account);
   const get = id => account.querySelector('#' + id);
   const render = async () => {
@@ -86,7 +86,7 @@ if (publicConfig.authRequired) {
   get('account-refresh').onclick = () => run(() => SourceLensAuth.refresh());
   get('account-verify').onclick = () => run(async () => { await SourceLensAuth.sendVerification(); });
   get('account-signout').onclick = () => run(() => SourceLensAuth.signOut());
-  get('account-delete').onclick = () => { if (confirm('Delete your SourceLens account? This cannot be undone.')) run(() => SourceLensAuth.deleteAccount()); };
+  get('account-delete').onclick = () => { if (confirm('Delete your Mikata account? This cannot be undone.')) run(() => SourceLensAuth.deleteAccount()); };
   get('account-reset').onclick = () => run(() => SourceLensAuth.resetPassword(get('account-email').value.trim()));
   render();
 }

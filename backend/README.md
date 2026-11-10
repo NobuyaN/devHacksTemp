@@ -1,6 +1,6 @@
-# SourceLens backend handoff
+# Mikata backend handoff
 
-SourceLens extends the repository's Flask + Vertex AI starter and preserves Mikata's `/check` contract and extension design. No OpenAI services or browser API keys are used. Existing contributor/security instructions still apply.
+Mikata extends the repository's Flask + Vertex AI starter and preserves Mikata's `/check` contract and extension design. No OpenAI services or browser API keys are used. Existing contributor/security instructions still apply.
 
 ## Run from a fresh clone
 
@@ -162,7 +162,7 @@ The local backend is still compatible with the existing `/check` contract. A Clo
 
 Use [deployment/PUBLIC_BETA.md](../deployment/PUBLIC_BETA.md) for the concrete resources, least-privilege IAM, service configuration, named quota database, Auth-only client key, release packaging and deployment commands. [deployment/public.env.yaml](../deployment/public.env.yaml) declares the deployed runtime limits. Future billable changes, public releases and Store publication require the owner's explicit approval.
 
-Public release users do not install CLIs or run localhost services. Their browser package includes the shared endpoint and SourceLens account sign-in. Local development remains opt-in with a manually configured endpoint. Firebase/Firestore authentication and hosted research have been live-tested; interactive Chrome installation and email verification remain a manual release check. Controlled fixtures do not establish model accuracy.
+Public release users do not install CLIs or run localhost services. Their browser package includes the shared endpoint and Mikata account sign-in. Local development remains opt-in with a manually configured endpoint. Firebase/Firestore authentication and hosted research have been live-tested; interactive Chrome installation and email verification remain a manual release check. Controlled fixtures do not establish model accuracy.
 
 ## Model availability troubleshooting
 
@@ -221,7 +221,7 @@ Public request processing duration includes server-side authentication and quota
 
 ## Shared beta deployment record (2026-11-10)
 
-The approved Cloud Run backend and Firebase Hosting are deployed. Users install from https://saladmanderdevhacks.web.app/install.html and create a verified SourceLens account; no Google Cloud tools or local server are required. See [the deployment runbook](../deployment/PUBLIC_BETA.md) for rebuild/deploy commands and actual live validation. Public distribution is a ZIP for Load unpacked, not a Chrome Web Store listing.
+The approved Cloud Run backend and Firebase Hosting are deployed. Users install from https://saladmanderdevhacks.web.app/install.html and create a verified Mikata account; no Google Cloud tools or local server are required. See [the deployment runbook](../deployment/PUBLIC_BETA.md) for rebuild/deploy commands and actual live validation. Public distribution is a ZIP for Load unpacked, not a Chrome Web Store listing.
 
 Publisher connections prefer checked public IPv4 addresses and try at most two checked addresses within the existing five-second deadline. This avoids selecting an unreachable IPv6 address first on Cloud Run. All DNS results must still be public; every redirect and robots policy is checked. No dependency or independence conclusion follows from reachability alone.
 

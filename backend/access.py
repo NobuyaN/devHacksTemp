@@ -51,7 +51,7 @@ class PublicAccess:
         if not self.required:
             return None
         if not authorization.startswith('Bearer ') or len(authorization) > 12000:
-            raise AccessDenied('Sign in to SourceLens to check a claim.', 'AUTH_REQUIRED', 401)
+            raise AccessDenied('Sign in to Mikata to check a claim.', 'AUTH_REQUIRED', 401)
         from firebase_admin import auth
         try:
             claims = auth.verify_id_token(authorization[7:], app=self._firebase(), check_revoked=True)

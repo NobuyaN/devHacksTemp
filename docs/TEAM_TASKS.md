@@ -7,7 +7,7 @@
 | Priority | Area / owner | File(s) to start with | Task | Definition of done |
 | --- | --- | --- | --- | --- |
 | **P0** | **UI / Design — ____** | `extension/popup.html`, `popup.css`, `content.css`, `design/` | Review 3 logo proposals and polish colors, button sizes, sidebar spacing | Popup looks legible in Chrome; image licensing recorded; toolbar icon still clear at 16px |
-| **P0** | **AI / Backend — SourceLens backend implementation** | `backend/main.py`, `backend/requirements.txt` | Validate Gemini + Google Search grounding responses with a cloud account, with billing permission | Verified citations come from real results; failures return neutral uncertainty; no made-up URLs |
+| **P0** | **AI / Backend — Mikata backend implementation** | `backend/main.py`, `backend/requirements.txt` | Validate Gemini + Google Search grounding responses with a cloud account, with billing permission | Verified citations come from real results; failures return neutral uncertainty; no made-up URLs |
 | **P0** | **Cloud / Security — ____** | `docs/SECURITY_AND_CREDITS.md`, `backend/` | Set up billing alerts/spend caps if available, least-privilege runtime identity, deployment access control | Costs are monitored, deployer knows demo endpoint risks, no real secrets in commits |
 | **P0** | **Extension / Auto Scan — ____** | `extension/content.js`, `background.js` | Test Auto Scan with real news articles, stop duplicate checks, handle dynamic pages | Auto Scan is opt-in per site, only marks evidence-backed warnings and has no unsafe page changes |
 | **P1** | **QA / Privacy — ____** | `docs/TEST_PLAN.md`, `sample-article.html` | Test permissions, private pages, keyboard navigation, error states, source links | All test cases documented; never frame heuristic candidate as falsehood |
@@ -38,7 +38,7 @@ VS Code → Search → `TODO(` will show handoff notes across the codebase.
 5. Use short, descriptive branches: `feat/auto-scan-quality`, `design/logo`, `fix/backend-timeout`, `docs/security`.
 6. Any result with no evidence should be labeled `insufficient_evidence`, not `false`.
 
-## SourceLens public-beta update
+## Mikata public-beta update
 
 The backend owner has implemented and deployed a self-configuring extension release, Firebase end-user authentication, verified-email enforcement, durable named-Firestore quotas and release/deployment documentation. Local development remains available; the owner approved public provisioning on 2026-11-10, and the shared beta is deployed at https://saladmanderdevhacks.web.app/install.html. The resource/permission/cost proposal is in `deployment/PUBLIC_BETA.md`; Cloud Run/Firebase integration has been live-tested; Chrome Web Store publication has not been performed. Controlled tests cover profile-isolated sessions and quota/model gates. The original packaged-starter status above is historical; source independence remains a prototype with explicit unresolved results.
 
@@ -46,3 +46,8 @@ The backend owner has implemented and deployed a self-configuring extension rele
 ## Extension update — 0.3.1
 
 Auto Scan was removed at the owner’s request. The current extension checks only explicitly selected or pasted claims. Old scan settings are ignored. The existing manual sidebar, citations, source-provenance rendering and account flow are preserved. Use `docs/releases/v0.3.1-beta.1.md` for current judge instructions.
+
+
+## Branding update — 0.3.2
+
+The user-facing app name is Mikata throughout the extension, dashboard and release notes. Cloud resources and internal session identifiers keep their existing IDs. Current judge instructions: `docs/releases/v0.3.2-beta.1.md`.

@@ -43,7 +43,7 @@ function validUrl(value) {
 
 function updateMode(url) {
   const pill = $("mode-pill");
-  pill.textContent = publicConfig.authRequired ? "✿ Shared SourceLens service" : url ? "✿ Connected to your backend" : "✦ Design preview mode";
+  pill.textContent = publicConfig.authRequired ? "✿ Shared Mikata service" : url ? "✿ Connected to your backend" : "✦ Design preview mode";
   pill.classList.toggle("live", Boolean(url));
 }
 
@@ -93,7 +93,7 @@ function renderAccount(state) {
   $("account-verify").hidden = state.emailVerified;
   $("account-status").textContent = state.signedIn
     ? (state.emailVerified ? `Signed in as ${state.email}. Refresh the article to start checking.` : `Verify the email sent to ${state.email}, then click Refresh.`)
-    : "Sign in or create a SourceLens account to check claims.";
+    : "Sign in or create a Mikata account to check claims.";
 }
 if (publicConfig.authRequired) {
   $("account-panel").hidden = false;
@@ -114,5 +114,5 @@ $("account-reset").addEventListener("click", () => {
   accountAction("MIKATA_AUTH_RESET").then(() => setMessage("If this account exists, a password reset email will be sent.")).catch(error => setMessage(error.message));
 });
 $("account-delete").addEventListener("click", () => {
-  if (confirm("Delete your SourceLens account? This cannot be undone. Usage counters expire separately after their retention period.")) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
+  if (confirm("Delete your Mikata account? This cannot be undone. Usage counters expire separately after their retention period.")) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
 });

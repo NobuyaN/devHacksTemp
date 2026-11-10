@@ -87,7 +87,7 @@ async function requestClaim(base, claim, message) {
       let token;
       try { token = await globalThis.SourceLensAuth.token(); }
       catch (_) { return { error: "Your sign-in session could not be refreshed. Open the popup and sign in again.", code: "INVALID_SESSION", backend_reached: false }; }
-      if (!token) return { error: "Open the Mikata popup and sign in to SourceLens first.", code: "AUTH_REQUIRED", backend_reached: false };
+      if (!token) return { error: "Open the Mikata popup and sign in to Mikata first.", code: "AUTH_REQUIRED", backend_reached: false };
       headers.Authorization = `Bearer ${token}`;
     }
     const response = await fetch(`${base}${publicConfig.authRequired ? "/api/check" : "/check"}`, {

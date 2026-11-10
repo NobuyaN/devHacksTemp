@@ -1,4 +1,4 @@
-> **Current release (0.3.1): manual checks only.** Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.3.1 beta release notes](docs/releases/v0.3.1-beta.1.md).
+> **Current release (0.3.2): manual checks only.** Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.3.2 beta release notes](docs/releases/v0.3.2-beta.1.md).
 
 # DevFest Hackathon 2026 提出用リポジトリ
 
@@ -39,10 +39,10 @@
 
   [MIT License](LICENSE) です。ほかのライセンスにしたいときは、LICENSE を書き換えてください。
 
-## SourceLens backend implementation
+## Mikata backend implementation
 
 The backend now includes structured multi-claim and image research, deterministic source-dependency analysis, safe article inspection, and an additive `/check` compatibility response. The separate dashboard and Firebase rewrite configuration are under `landing/` and `firebase.json`.
 
 See [backend/README.md](backend/README.md) for exact setup, test, API and deployment commands, IAM prerequisites and current verification limits. Existing instructions and design-preview behavior still apply. Cloud deployment and live validation are pending; fixture tests are not live verified fact checks.
 
-For a shared service usable from other Chrome profiles/devices, see [the authenticated public-beta plan](deployment/PUBLIC_BETA.md). The release builder packages a fixed endpoint; users need a SourceLens account, not Google Cloud tools. Public deployment and Store publication are not yet complete.
+For a shared service usable from other Chrome profiles/devices, see [the authenticated public-beta plan](deployment/PUBLIC_BETA.md). The release builder packages a fixed endpoint; users need a Mikata account, not Google Cloud tools. The shared service is deployed; Chrome Web Store publication remains separate.

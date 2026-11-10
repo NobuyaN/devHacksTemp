@@ -1,4 +1,4 @@
-# SourceLens shared public beta
+# Mikata shared public beta
 
 The owner approved provisioning and public deployment on 2026-11-10. The existing project `saladmanderdevhacks` was verified as number `261427009524`. Firebase Authentication, the Tokyo named Firestore database and quota TTL, dedicated service accounts, the Auth-only public API key, Cloud Run and Firebase Hosting have been provisioned. This is a monitored beta, not a Chrome Web Store release or an unlimited commercial service.
 
@@ -6,20 +6,20 @@ The owner approved provisioning and public deployment on 2026-11-10. The existin
 - Dashboard: https://saladmanderdevhacks.web.app/
 - API health through Hosting: https://saladmanderdevhacks.web.app/api/health
 - Direct backend: https://sourcelens-api-6gj6yd2pfq-an.a.run.app
-- Released package/build configuration: `build/public-manual-v0.3.1` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
+- Released package/build configuration: `build/public-mikata-v0.3.2` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
 
 The first regional routing initialization took about ten minutes after the container became ready. Do not publish a new installation link until both the health check and a hosted signed request pass.
 
 ## What changes for users
 
-Users install a release package with the shared endpoint already configured, create a **SourceLens** email/password account, verify email, and check selected text. They do not install CLIs, authenticate to your cloud account, enter a project ID or run a server. Each Chrome profile has its own sign-in session; the service address is packaged rather than stored manually per profile. The current extension supports manual checks only; Auto Scan was removed in version 0.3.1.
+Users install a release package with the shared endpoint already configured, create a **Mikata** email/password account, verify email, and check selected text. They do not install CLIs, authenticate to your cloud account, enter a project ID or run a server. Each Chrome profile has its own sign-in session; the service address is packaged rather than stored manually per profile. The current extension supports manual checks only; Auto Scan was removed in version 0.3.1.
 
 The initial distribution is a downloadable ZIP that users load unpacked. Chrome Web Store submission, developer-account review and publication remain separate approvals. Do not call this package a published store extension.
 
 ## Resources and limits
 
 - Existing Google project, with the additional APIs below enabled.
-- Firebase linked to that project; one SourceLens Web app; email/password Firebase Authentication with verified-email enforcement in the backend.
+- Firebase linked to that project; one Mikata Web app; email/password Firebase Authentication with verified-email enforcement in the backend.
 - A **new dedicated Auth-only public Web API key**, restricted to Identity Toolkit and Secure Token APIs. Never use a Gemini/Vertex key in a client bundle. Do not change a shared existing key's restrictions and break other apps.
 - Cloud Run `sourcelens-api`, `asia-northeast1`, one maximum instance, zero minimum instances, concurrency 4, 55-second service timeout, 512 MiB/1 CPU. It is network-accessible, but every research route verifies Firebase ID tokens, revocation and email verification **before** reserving quota or calling Gemini.
 - Dedicated runtime and build service accounts. Runtime: Vertex AI User, Firebase Authentication Viewer (revocation/user checks), and Datastore User conditioned on the isolated `sourcelens` database. Builder: Cloud Run Builder. No service-account keys.
@@ -53,16 +53,16 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
 
 # Link Firebase to the existing project; do not create another cloud project.
 firebase projects:addfirebase "$PROJECT_ID" --non-interactive
-firebase apps:create WEB "SourceLens Web" --project "$PROJECT_ID" --non-interactive
+firebase apps:create WEB "Mikata Web" --project "$PROJECT_ID" --non-interactive
 backend/.venv/bin/python scripts/configure_public_auth.py --project "$PROJECT_ID" --enable-email-password
 
 gcloud services api-keys create --key-id=sourcelens-public-auth \
-  --display-name="SourceLens public Auth only" \
+  --display-name="Mikata public Auth only" \
   --api-target=service=identitytoolkit.googleapis.com \
   --api-target=service=securetoken.googleapis.com --project "$PROJECT_ID"
 ```
 
-Reuse the SourceLens app/key if already provisioned; do not repeatedly create resources on retries. Obtain the Auth-only key string with `gcloud services api-keys get-key-string sourcelens-public-auth --project "$PROJECT_ID"`. This is public Firebase configuration, not a secret backend credential. Confirm its API restrictions before packaging.
+Reuse the Mikata app/key if already provisioned; do not repeatedly create resources on retries. Obtain the Auth-only key string with `gcloud services api-keys get-key-string sourcelens-public-auth --project "$PROJECT_ID"`. This is public Firebase configuration, not a secret backend credential. Confirm its API restrictions before packaging.
 
 ```sh
 gcloud firestore databases create --database=sourcelens --location=asia-northeast1 \
@@ -148,3 +148,12 @@ Live logs showed repeated Vertex HTTP 500/504 errors while backend health and Fi
 69 backend tests, TypeScript/JavaScript checks, dependency consistency and the structural smoke check passed. A controlled synthetic first-attempt HTTP 500 followed by a real Flash-Lite Search request completed in 4.1 seconds with grounding supports; the injected failure is a test fixture, not a claim of observing that exact Google outage.
 
 Three hosted manual checks then returned HTTP 200: astronomy returned INSUFFICIENT_EVIDENCE in 23.3 seconds because no grounding supports were supplied (one direct publisher candidate was fetched); geography returned SUPPORTED with three grounding supports in 6.9 seconds; a deliberately false astronomy control returned CONTRADICTED with four grounding supports in 6.2 seconds. A deployed stage log confirmed the first astronomy main-model search hit its deadline and routed to fallback. Temporary QA accounts were deleted without sending emails or resetting existing counters. These checks demonstrate the deployed request path and fail-closed evidence policy, not general accuracy or guaranteed provider availability. Interactive Chrome QA and the user's exact failing sentence still need reproduction if the failure persists.
+
+
+## Mikata branding update — 2026-11-10
+
+Version 0.3.2 standardizes the user-facing name to **Mikata**: extension account controls/status/errors, dashboard, privacy/install pages, API health/auth messages and release notes. The current build is `build/public-mikata-v0.3.2`; GitHub assets are in `release-assets/` with proposed tag `v0.3.2-beta.1`. Original account/session storage identifiers, internal JavaScript names, crawler user-agent, project ID, Cloud Run/Firestore/API-key/service-account identifiers and URLs remain compatible. Existing accounts do not need recreation. Research, source-verification behavior, Gemini fallback and 100/100 quotas are unchanged.
+
+Firebase rejected both full and subject/sender-only managed account-email template changes with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`; no emails were sent. Those Google-managed email templates retain their project-name placeholder, which can show the existing cloud project display name. The project was not renamed. If desired, review the Firebase Console public-facing name separately under Project settings → General → Public settings; do not migrate the project or replace account credentials for a display-name change.
+
+Cloud Run revision `sourcelens-api-00005-hv7` and the repinned Firebase Hosting release are live. 69 backend tests, 23 extension tests, TypeScript/JavaScript checks and the structural smoke check passed. Live read-only checks confirmed Mikata branding on the dashboard/install/privacy pages and dashboard script; API health reports Mikata, and unsigned checks still return 401 with the renamed sign-in message. The downloaded ZIP hash matches the generated version 0.3.2 package. No live research call was needed because the research implementation/settings did not change. No account emails were sent, no GitHub push/publication was performed, and internal resource/account identifiers were preserved.

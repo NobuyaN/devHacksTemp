@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "mikata — a little perspective",
   "short_name": "mikata",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Check highlighted text or pasted claims with AI-assisted research, citations and source-provenance analysis.",
   "permissions": [
     "storage",

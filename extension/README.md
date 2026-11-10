@@ -1,6 +1,6 @@
-# Use SourceLens through the Mikata Chrome extension
+# Mikata Chrome extension
 
-The extension keeps the existing Mikata visual design. The backend provides live SourceLens research and inspectable source-provenance results inside its webpage sidebar. The dashboard is an optional second client.
+The extension keeps the existing Mikata visual design. The backend provides live Mikata research and inspectable source-provenance results inside its webpage sidebar. The dashboard is an optional second client.
 
 ## Install locally
 
@@ -50,7 +50,7 @@ For provenance, expand **Source independence** to see each page's fetch status a
 
 The source `extension/` folder keeps developer/preview defaults. A fresh Chrome profile does not inherit another profile's endpoint setting or session. For public users, distribute the artifact produced by `scripts/build_public.py` after the shared service is deployed; do not distribute the unconfigured developer folder and expect it to connect automatically.
 
-The release contains the approved shared API origin and a public Firebase Auth identifier, hides developer endpoint controls, and works without a local server. Users create/sign into SourceLens, verify their email and refresh the session. Their account does not grant access to the operator's Google Cloud project. Research requires an explicit manual check. Sign-in tokens/email live only in trusted browser-session storage; passwords and results are not persisted. Closing the browser can require signing in again. Sign-out, verification resend, password reset and account deletion are available in the popup; deletion may require recent sign-in.
+The release contains the approved shared API origin and a public Firebase Auth identifier, hides developer endpoint controls, and works without a local server. Users create/sign into Mikata, verify their email and refresh the session. Their account does not grant access to the operator's Google Cloud project. Research requires an explicit manual check. Sign-in tokens/email live only in trusted browser-session storage; passwords and results are not persisted. Closing the browser can require signing in again. Sign-out, verification resend, password reset and account deletion are available in the popup; deletion may require recent sign-in.
 
 The backend verifies project/signature/expiry, revocation and email status and enforces durable user/global quotas before research. Modifying the extension or calling the API directly cannot bypass those server checks. A packaged endpoint overrides old per-profile developer settings; tokens are never sent to a user-supplied endpoint override. A failed public configuration reports an error rather than silently returning a design-preview verdict.
 

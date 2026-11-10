@@ -1,4 +1,4 @@
-"""SourceLens API, including the existing Mikata /check contract."""
+"""Mikata API, including the existing Mikata /check contract."""
 import base64
 import binascii
 import os
@@ -89,7 +89,7 @@ def create_app(engine_factory=ResearchEngine, access_policy=None):
     @app.get('/')
     @app.get('/api/health')
     def health():
-        return jsonify(name='SourceLens', status='ok', auth_required=access.required, vertex_configured=bool(os.getenv('GOOGLE_CLOUD_PROJECT')))
+        return jsonify(name='Mikata', status='ok', auth_required=access.required, vertex_configured=bool(os.getenv('GOOGLE_CLOUD_PROJECT')))
 
     @app.post('/check')
     @app.post('/api/check')

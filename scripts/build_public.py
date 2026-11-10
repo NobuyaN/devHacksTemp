@@ -98,11 +98,22 @@ Dashboard: ''' + origin + '/\nPrivacy: ' + origin + '/privacy.html\n')
                 info.external_attr = 0o100644 << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 package.writestr(info, source.read_bytes())
+    versioned_archive = downloads / ('mikata-extension-' + manifest['version'] + '.zip')
+    shutil.copyfile(archive, versioned_archive)
     (hosting/'install.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Install Mikata beta</title><link rel="stylesheet" href="style.css"><main><h1>Check claims while you read.</h1><p>This is a beta. Research is AI-assisted and source independence can remain unresolved.</p><ol><li><a href="downloads/mikata-extension.zip">Download the beta extension</a> and unzip it.</li><li>In Chrome, open chrome://extensions and turn Developer mode on.</li><li>Click Load unpacked and select the unzipped folder containing manifest.json.</li><li>Open Mikata from the Extensions menu. Create a Mikata account, verify your email, and refresh your session.</li><li>Refresh an ordinary article page, select a sentence and choose Check with mikata.</li></ol><p>No cloud account, CLI, project ID or local server is required for users of the deployed service. Checks start only when you explicitly submit a claim. This package is not a Chrome Web Store listing; store publication requires separate review.</p><p>The initial beta allows 100 research requests per verified account per UTC day, subject to a shared allowance of 100 requests per UTC day across all users. Text or images submitted for research are processed by Google Cloud. Avoid confidential content. Account data is managed by Firebase Authentication; the backend stores quota counters, not submitted claim text.</p><a href="index.html">Open the optional dashboard</a></main></html>''')
+    install = (hosting/'install.html').read_text()
+    install = install.replace('downloads/mikata-extension.zip', 'downloads/' + versioned_archive.name)
+    install = install.replace('Download the beta extension', 'Download Mikata ' + manifest['version'])
+    (hosting/'install.html').write_text(install)
     shutil.copyfile(ROOT/'deployment/firestore.rules', output/'firestore.rules')
     firebase = json.loads((ROOT/'firebase.json').read_text())
     firebase['hosting']['public'] = 'hosting'
     firebase['firestore'] = [{'database':'sourcelens','rules':'firestore.rules'}]
+    # Mutable entry points must revalidate. Versioned ZIPs also give existing
+    # browsers a fresh URL even if they cached the old alias before this policy.
+    for source in ('/downloads/mikata-extension.zip', '/', '/index.html', '/install.html', '/app.js', '/i18n.js', '/config.js'):
+        firebase['hosting']['headers'].append({'source':source,'headers':[
+            {'key':'Cache-Control','value':'no-cache, max-age=0, must-revalidate'}]})
     csp = None
     for group in firebase['hosting'].get('headers', []):
         for header in group.get('headers', []):
@@ -114,7 +125,7 @@ Dashboard: ''' + origin + '/\nPrivacy: ' + origin + '/privacy.html\n')
         for source in ('/', '/index.html', '/install.html', '/privacy.html', '/sample-article.html'):
             firebase['hosting']['headers'].append({'source': source, 'headers':[{'key':'Content-Security-Policy','value':csp}]})
     (output/'firebase.json').write_text(json.dumps(firebase,indent=2)+'\n')
-    return {'extension':str(extension), 'hosting':str(hosting), 'archive':str(archive), 'firebase_config':str(output/'firebase.json')}
+    return {'extension':str(extension), 'hosting':str(hosting), 'archive':str(archive), 'versioned_archive':str(versioned_archive), 'firebase_config':str(output/'firebase.json')}
 
 
 if __name__ == '__main__':

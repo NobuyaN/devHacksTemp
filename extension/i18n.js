@@ -3,7 +3,6 @@
   const ja = {
     "Language / 言語": "Language / 言語",
     "みかた • your reading buddy": "みかた • 読むときのパートナー",
-    "logo idea": "ロゴ案",
     "A LITTLE PERSPECTIVE, EVERY DAY": "毎日の情報に、もうひとつの見方を",
     "Curious if it's": "本当かどうか、",
     "true?": "気になりますか？",
@@ -169,7 +168,7 @@
     "Page exceeds the 750 KB inspection limit": "ページが調査のサイズ上限（750 KB）を超えています。"
   };
   Object.assign(ja, {
-    "Mikata, draft hand-drawn logo with magnifying glass": "Mikata：虫眼鏡をあしらった手描きロゴの案",
+    "Mikata logo": "みかたのロゴ",
     "There's a little more to this.": "追加の文脈が必要です。",
     "Electric vehicles have no tailpipe emissions, but electricity generation and manufacturing can still produce emissions. This is a prewritten example, not a live check.": "電気自動車は走行時に排気ガスを出しませんが、発電や製造の過程では排出が生じます。これは事前に用意した例であり、実際の調査結果ではありません。",
     "This example is generally supported.": "このサンプルの主張には支持する根拠があります。",

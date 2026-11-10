@@ -6,7 +6,7 @@ The owner approved provisioning and public deployment on 2026-11-10. The existin
 - Dashboard: https://saladmanderdevhacks.web.app/
 - API health through Hosting: https://saladmanderdevhacks.web.app/api/health
 - Direct backend: https://sourcelens-api-6gj6yd2pfq-an.a.run.app
-- Released package/build configuration: `build/public-bilingual-v0.4.0` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
+- Released package/build configuration: `build/public-logo-v0.4.1` (generated, Git-ignored). Rebuild from source and a build-local public Auth config; do not rely on that local directory being present in a teammate's clone.
 
 The first regional routing initialization took about ten minutes after the container became ready. Do not publish a new installation link until both the health check and a hosted signed request pass.
 
@@ -174,3 +174,10 @@ Cloud Run revision `sourcelens-api-00006-jsh` and the repinned Firebase Hosting 
 A user reported receiving 0.3.2 from the shared ZIP URL. A fresh server download actually contained 0.4.0, but the existing URL advertised `max-age=3600`, allowing old browser copies for an hour. Packaging now also emits `downloads/mikata-extension-0.4.0.zip` (derived from the manifest version), and the install page links to that distinct filename. The mutable ZIP alias, install/dashboard entry pages and key app scripts now use `no-cache, max-age=0, must-revalidate`. This cannot retroactively evict an already-cached old URL, so share the version-specific link: https://saladmanderdevhacks.web.app/downloads/mikata-extension-0.4.0.zip
 
 The Hosting-only build `build/public-bilingual-v0.4.0-download-fix` is deployed; backend/research behavior is unchanged. Twenty existing public-access/package tests passed. Live downloads verified manifest 0.4.0, bundled language controls, matching local/remote ZIP hashes, the version-specific install link and the updated cache headers. Users should unzip into a distinct folder and load that folder, then refresh article tabs, to avoid accidentally selecting an older unpacked extension.
+
+
+## Popup image logo — 0.4.1 (2026-11-10)
+
+At the owner's request, the popup uses the existing Mikata PNG image as its prominent header logo and removes the “logo idea” badge, draft label and draft alt text in both interface languages. The image itself and Chrome toolbar icons were preserved. The header image renders at 210 px wide with its aspect ratio retained. Research/backend behavior is unchanged.
+
+Thirty extension/localization tests, TypeScript/JavaScript checks and the structural smoke check passed. The new package `build/public-logo-v0.4.1` is published at https://saladmanderdevhacks.web.app/downloads/mikata-extension-0.4.1.zip, and the install page links to it. Live downloads verified the manifest version, bundled image, absence of the badge and ZIP hash. The previously shared 0.4.0 versioned ZIP was carried into the new Hosting release and remains accessible. Future Hosting releases should carry forward already-shared versioned ZIPs from verified prior release assets before deployment. Prepared GitHub assets and release notes use `v0.4.1-beta.1`. This change did not push to GitHub or publish a GitHub Release.

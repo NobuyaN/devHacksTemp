@@ -52,13 +52,10 @@ footer span { color: #d8a08e; font-size: 13px; }
 
 .account-privacy { font-size:10px; line-height:1.5; color:#819586; margin:5px 0 0; }
 
-/* TODO(BRAND): Proposed hand-drawn logo, not a finalized asset.
-   Replace logo-candidate.png after team design review; do not change the Chrome
-   toolbar icons until a 16px readability test is complete. */
-.brand-draft { display:flex; flex-direction:column; min-width:0; }
-.logo-candidate { display:block; object-fit:contain; object-position:left center; width:183px; height:91px; margin:-12px 0 -8px -10px; }
-.brand-draft .japanese { margin-top:0; }
-.draft-tag { font-size:8px; border:1px solid #e6d4b9; background:#fff4e5; color:#997343; border-radius:99px; padding:1px 5px; white-space:nowrap; }
+/* Mikata image logo. */
+.brand { display:flex; flex-direction:column; min-width:0; }
+.brand-logo { display:block; object-fit:contain; object-position:left center; width:210px; height:auto; }
+.brand .japanese { margin-top:4px; }
 
 /* English / Japanese segmented language switch. */
 .mikata-language-switch { display:flex; justify-content:flex-end; gap:2px; margin:10px 0; }

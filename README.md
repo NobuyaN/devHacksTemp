@@ -1,4 +1,4 @@
-> **Current release (0.4.0): manual checks only.** Use the English / 日本語 switch in the popup, sidebar or dashboard. Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.4.0 beta release notes](docs/releases/v0.4.0-beta.1.md).
+> **Current release (0.4.1): manual checks only.** Use the English / 日本語 switch in the popup, sidebar or dashboard. Auto Scan has been removed. Install the configured hosted extension from https://saladmanderdevhacks.web.app/install.html, refresh article tabs, and check highlighted or pasted claims. The original starter description below is historical. Current judge instructions: [v0.4.1 beta release notes](docs/releases/v0.4.1-beta.1.md).
 
 # DevFest Hackathon 2026 提出用リポジトリ
 

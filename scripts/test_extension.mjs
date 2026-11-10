@@ -4,17 +4,19 @@ import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const code = readFileSync(new URL('../extension/background.js', import.meta.url), 'utf8');
-function broker(payload, status = 200, networkError = null) {
+function broker(payload, status = 200, networkError = null, options = {}) {
   const calls = [];
   let listener;
   const context = vm.createContext({
-    chrome: { storage: { local: { get: async () => ({ apiUrl: 'http://localhost:8080' }) } },
-      runtime: { onMessage: { addListener(fn) { listener = fn; } } } },
+    SOURCELENS_CONFIG: options.config || {},
+    SourceLensAuth: { token: async () => options.token || null, status: async () => ({ signedIn: true }) },
+    chrome: { storage: { local: { get: async () => ({ apiUrl: options.apiUrl ?? 'http://localhost:8080' }) } },
+      runtime: { id: 'fixture-extension', getURL: path => 'chrome-extension://fixture-extension/' + path, onMessage: { addListener(fn) { listener = fn; } } } },
     URL, AbortController, setTimeout, clearTimeout,
-    fetch: async (url, options) => { if (networkError) throw networkError; calls.push({ url, body: JSON.parse(options.body) }); return { ok: status === 200, status, json: async () => payload }; }
+    fetch: async (url, options) => { if (networkError) throw networkError; calls.push({ url, headers: options.headers, body: JSON.parse(options.body) }); return { ok: status === 200, status, json: async () => payload }; }
   });
   vm.runInContext(code, context);
-  return { calls, check: (message = {}) => new Promise(resolve => listener({ type: 'MIKATA_CHECK', claim: 'Controlled fixture claim', sourceTitle: 'Fixture page', ...message }, {}, resolve)) };
+  return { calls, dispatch: (message, sender, sendResponse = () => {}) => listener(message, sender, sendResponse), check: (message = {}) => new Promise(resolve => listener({ type: 'MIKATA_CHECK', claim: 'Controlled fixture claim', sourceTitle: 'Fixture page', ...message }, {}, resolve)) };
 }
 test('existing broker accepts additive backend contract and retains grounding', async () => {
   const server = broker({ status: 'supported', summary: 'Fixture only', detail: 'Not live evidence', sources: [{ title: 'Example', url: 'https://example.com/' }], results: [{ grounding: { search_entry_point: { rendered_content: '<p>Fixture Google suggestions</p>' } }, independence: { dependencies: [] } }] });
@@ -59,4 +61,37 @@ test('network failures retain the connection error code', async () => {
   const result = await broker({}, 200, new TypeError('Fixture offline')).check();
   assert.equal(result.code, 'NETWORK_ERROR');
   assert.match(result.error, /Couldn't connect/);
+});
+
+test('public package works in fresh profile with pinned service and signed-in user', async () => {
+  const server = broker({ status: 'supported', summary: 'Fixture only', sources: [] }, 200, null,
+    { config: { apiOrigin: 'https://fixture-project.web.app', authRequired: true }, apiUrl: '', token: 'fixture-id-token' });
+  assert.equal((await server.check()).status, 'supported');
+  assert.equal(server.calls[0].url, 'https://fixture-project.web.app/api/check');
+  assert.equal(server.calls[0].headers.Authorization, 'Bearer fixture-id-token');
+});
+test('stored endpoint overrides cannot redirect public authentication tokens', async () => {
+  const server = broker({ status: 'supported', summary: 'Fixture only', sources: [] }, 200, null,
+    { config: { apiOrigin: 'https://fixture-project.web.app', authRequired: true }, apiUrl: 'https://untrusted.run.app', token: 'fixture-id-token' });
+  await server.check();
+  assert.equal(server.calls[0].url, 'https://fixture-project.web.app/api/check');
+});
+test('signed-out public users do not trigger backend research', async () => {
+  const server = broker({}, 200, null, { config: { apiOrigin: 'https://fixture-project.web.app', authRequired: true }, apiUrl: '' });
+  const result = await server.check();
+  assert.equal(result.code, 'AUTH_REQUIRED'); assert.equal(result.backend_reached, false);
+  assert.equal(server.calls.length, 0);
+});
+test('content scripts cannot invoke privileged account operations', () => {
+  const server = broker({}); let responded = false;
+  assert.equal(server.dispatch({ type: 'MIKATA_AUTH_STATUS' }, { id: 'fixture-extension', url: 'https://article.example/' }, () => { responded = true; }), undefined);
+  assert.equal(responded, false);
+});
+
+test('misconfigured public release never silently returns design-preview verdicts', async () => {
+  const server = broker({}, 200, null, { config: { authRequired: true, apiOrigin: '' }, apiUrl: '' });
+  const result = await server.check();
+  assert.equal(result.code, 'SERVICE_NOT_CONFIGURED');
+  assert.notEqual(result.demo, true);
+  assert.equal(server.calls.length, 0);
 });

@@ -156,53 +156,13 @@ IAM handoff (grant only as needed, with approval):
 
 Reference: [source deployment roles](https://docs.cloud.google.com/run/docs/deploying-source-code), [build service identity](https://docs.cloud.google.com/run/docs/configuring/services/build-service-account).
 
-## Deployment commands — approval required, not executed
+## Deployment — use the authenticated public-beta runbook
 
-After preflight and explicit approval for billable API enablement, runtime/build identity creation, IAM grants and deployment, an administrator provisions the two identities and minimum roles above. Provisioning commands for the approved administrator (replace `DEPLOYER_EMAIL` with the verified teammate account; do not run until approved):
+The local backend is still compatible with the existing `/check` contract. A Cloud Run deployment now requires Firebase authentication and durable quota reservations; it cannot start with `AUTH_MODE=local` or emulator bypass settings. Do not use the old unauthenticated starter deployment command for a shared service.
 
-```sh
-export DEPLOYER_EMAIL=teammate@example.com
-gcloud iam service-accounts create sourcelens-runtime --project "$PROJECT_ID"
-gcloud iam service-accounts create sourcelens-build --project "$PROJECT_ID"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com" --role=roles/aiplatform.user
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com" --role=roles/run.builder
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/run.sourceDeveloper
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/serviceusage.serviceUsageConsumer
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/firebasehosting.admin
-gcloud iam service-accounts add-iam-policy-binding "sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com" --project "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/iam.serviceAccountUser
-gcloud iam service-accounts add-iam-policy-binding "sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com" --project "$PROJECT_ID" --member="user:${DEPLOYER_EMAIL}" --role=roles/iam.serviceAccountUser
-```
+Use [deployment/PUBLIC_BETA.md](../deployment/PUBLIC_BETA.md) for the concrete resources, least-privilege IAM, service configuration, named quota database, Auth-only client key, release packaging and deployment commands. [deployment/public.env.yaml](../deployment/public.env.yaml) declares the proposed runtime limits. Billable provisioning, public hosting and Store publication still require the owner's explicit approval.
 
-The deployer making a service public also needs `run.services.setIamPolicy` through an appropriately scoped admin role; do not grant project-wide Owner/Editor. Commands below assume the approved identities exist:
-
-```sh
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com aiplatform.googleapis.com firebasehosting.googleapis.com \
-  --project "$PROJECT_ID"
-export RUNTIME_SA="sourcelens-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
-export BUILD_SA="sourcelens-build@${PROJECT_ID}.iam.gserviceaccount.com"
-gcloud run deploy sourcelens-api --source backend \
-  --project "$PROJECT_ID" --region asia-northeast1 \
-  --service-account "$RUNTIME_SA" --build-service-account "projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
-  --no-allow-unauthenticated --max-instances 1 --min-instances 0 \
-  --concurrency 4 --timeout 55 --memory 512Mi --cpu 1 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-3.5-flash"
-export API_URL="$(gcloud run services describe sourcelens-api --project "$PROJECT_ID" --region asia-northeast1 --format='value(status.url)')"
-curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" "$API_URL/api/health"
-```
-
-Private Cloud Run will not accept anonymous extension requests or the public Firebase rewrite. Only after explicit public-demo approval and acceptance of the current coarse abuse controls:
-
-```sh
-gcloud run services add-iam-policy-binding sourcelens-api \
-  --project "$PROJECT_ID" --region asia-northeast1 \
-  --member=allUsers --role=roles/run.invoker
-firebase deploy --only hosting --project "$PROJECT_ID"
-```
-
-Firebase must already be attached to the **same verified project** with a default Hosting site; initialize that through the approved Firebase console if missing. `--project` makes an unverified `.firebaserc` unnecessary. `firebase.json` is committed and pins the Cloud Run revision using `pinTag`. Deploy backend first, Hosting second; redeploy Hosting to move its pin after a later backend release. [Firebase Cloud Run rewrite documentation](https://firebase.google.com/docs/hosting/cloud-run).
-
-Verify the actual published dashboard by submitting a low-cost test, inspecting `/api/check` in browser Network, opening citation links, checking Search suggestions and provenance quotes, and confirming Cloud Run logs contain no private content. Test the extension separately with the returned Cloud Run URL. No deployment, credit-eligibility check, or interactive Chrome end-to-end test has been performed here. A controlled live Gemini 3.5 Flash check completed with six grounded sources and nine grounding supports; none of those article pages was successfully inspected, so their independence remained unresolved. This is a connectivity check, not a verification-accuracy benchmark. Docker is unavailable here, so the container image build is also pending.
+Public release users do not install CLIs or run localhost services. Their browser package includes the shared endpoint and SourceLens account sign-in. Local development remains opt-in with a manually configured endpoint. No live Firebase/Firestore authentication deployment has been performed for this change; controlled tests and a fixture-only package build are not production verification.
 
 ## Model availability troubleshooting
 
@@ -245,3 +205,15 @@ Positive independence remains narrow: the current rule requires inspected primar
 Run `npm run test:extension` for the broker and DOM fixture tests. DOM tests simulate per-site enablement, two-check limits, preview behavior, source-backed warning clicks, supported results, missing citations, failed requests and password-page exclusion; they do not replace an interactive test in the user's real Chrome profile.
 
 Live retrieval validation after the candidate change: a controlled Earth-orbit grounded search returned six grounding sources and one direct candidate; NASA’s `Earth Fact Sheet` at `https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html` was actually fetched and inspected. This verifies publisher retrieval for that page only. No independent-origin conclusion was inferred from availability. A prior diagnostic hit a provider deadline; source access and model response times remain variable.
+
+## Public authentication and durable quotas
+
+`access.py` verifies Firebase ID tokens for the configured project, checks revocation/user-disabled state and requires verified email. `AUTH_MODE=firebase` enables it locally for integration testing; Cloud Run forces this mode. Research POST routes are gated before model construction. `AUTH_REQUIRED`/`INVALID_SESSION` use 401, `EMAIL_NOT_VERIFIED` uses 403, and exhausted daily quotas use 429. Verification/storage failures fail closed with 503 and never start an AI request. The public `/api/health` reports whether authentication is required without exposing tokens or account data.
+
+`QUOTA_DATABASE` defaults to the isolated named Firestore database `sourcelens`. `DAILY_USER_LIMIT=5` and `DAILY_GLOBAL_LIMIT=50` are the initial proposal. Two document counters are read and incremented in one transaction before AI work. UTC day boundaries are returned in `quota.resets_at`; successful responses include the remaining per-user allowance. Requests reserved before an eventual provider failure still count. Quota calls have a bounded caller wait; late commits can consume an allowance without starting research. In-process rate/concurrency guards supplement this durable limit and are not the global budget mechanism.
+
+The quota store contains hashed identifiers, counts and an expiration timestamp, not selected text, images or article bodies. Client Firestore rules deny all reads/writes; the runtime's IAM condition scopes its database access. Configure TTL before public deployment; a timestamp alone does not enable deletion. Firebase Authentication stores the user account separately. Account verification/password reset/deletion are initiated by the user; controlled tests do not send emails or create accounts.
+
+The extension calls Firebase Auth REST endpoints directly, stores sign-in tokens/email in trusted session storage, and sends tokens only to the pinned release API. Passwords are not saved. No remote SDK code is loaded into the extension. A public Firebase Auth API identifier is permitted in the release; it must be restricted to Authentication/Token services and must not be a Gemini/Vertex credential. See [Firebase API keys](https://firebase.google.com/docs/projects/api-keys) and [Firebase token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens).
+
+Public request processing duration includes server-side authentication and quota verification. Caller-side token refresh and network transit are not part of that server measurement. Synthetic webpage clicks cannot trigger paid highlight/retry research; privileged popup messages and trusted user gestures still work, and opening an already fetched warning does not repeat research.

@@ -39,7 +39,8 @@ export interface FactCheckResult {
 }
 export interface CheckResponse {
   schema_version: '1.0'; processing_ms: number; claims: Claim[]; results: FactCheckResult[];
+  quota?: { daily_limit: number; remaining: number; resets_at: string };
   status: 'supported' | 'contradicted' | 'needs_context' | 'insufficient_evidence';
   summary: string; detail: string; sources: EvidenceSource[];
 }
-export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'CLOUD_AUTH_ERROR' | 'PROVIDER_RATE_LIMITED' | 'PROVIDER_UNAVAILABLE' | 'RESEARCH_REQUEST_REJECTED' }
+export interface ErrorResponse { error: string; code: 'INVALID_INPUT' | 'RATE_LIMITED' | 'BUSY' | 'HTTP_ERROR' | 'RESEARCH_UNAVAILABLE' | 'MODEL_UNAVAILABLE' | 'CLOUD_AUTH_ERROR' | 'PROVIDER_RATE_LIMITED' | 'PROVIDER_UNAVAILABLE' | 'RESEARCH_REQUEST_REJECTED' | 'AUTH_REQUIRED' | 'INVALID_SESSION' | 'EMAIL_NOT_VERIFIED' | 'AUTH_UNAVAILABLE' | 'QUOTA_UNAVAILABLE' | 'DAILY_QUOTA_EXCEEDED' | 'SERVICE_DAILY_QUOTA_EXCEEDED' }

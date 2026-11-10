@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>mikata</title>
   <link rel="stylesheet" href="popup.css" />
+  <script src="config.js" defer></script>
   <script src="popup.js" defer></script>
 </head>
 <body>
@@ -28,6 +29,23 @@
       <p>Highlight something you read. We'll help you look a little closer.</p>
     </section>
     <div class="pill" id="mode-pill">✦ Design preview mode</div>
+    <section class="actions" id="account-panel" hidden aria-label="SourceLens account">
+      <p id="account-status" role="status">Sign in to use the shared service.</p>
+      <form id="account-form">
+        <label for="account-email">Email</label><input id="account-email" type="email" autocomplete="email" required maxlength="254">
+        <label for="account-password">Password</label><input id="account-password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
+        <button class="secondary" type="submit">Sign in</button>
+        <button class="secondary" type="button" id="account-create">Create account</button>
+        <button class="sample" type="button" id="account-reset">Reset password</button>
+      </form>
+      <div id="account-session" hidden>
+        <button class="secondary" type="button" id="account-refresh">I've verified my email · Refresh</button>
+        <button class="secondary" type="button" id="account-verify">Resend verification email</button>
+        <button class="sample" type="button" id="account-signout">Sign out</button>
+        <button class="sample" type="button" id="account-delete">Delete SourceLens account</button>
+      </div>
+      <p class="auto-privacy">A SourceLens account is enough. No cloud account or developer tools are needed. <a id="account-privacy" href="#">Privacy</a></p>
+    </section>
     <section class="autoscan" aria-label="Auto Scan settings">
       <div class="auto-top">
         <div class="auto-icon" aria-hidden="true">✿</div>
@@ -35,7 +53,7 @@
         <label class="auto-switch" for="auto-toggle"><input type="checkbox" id="auto-toggle" aria-label="Enable automatic claim scanning on this website" /><span class="auto-track"></span></label>
       </div>
       <p class="auto-note" id="auto-note">Off by default · Enable only on sites you trust.</p>
-      <p class="auto-privacy">✦ Up to 2 claims per page load. When connected, Auto Scan makes live API requests that may cost money. Preview underlines are not misinformation warnings.</p>
+      <p class="auto-privacy" id="auto-privacy-note">✦ Up to 2 claims per page load. When connected, Auto Scan makes live API requests that may cost money. Preview underlines are not misinformation warnings.</p>
     </section>
     <section class="actions">
       <button id="selection-btn" class="primary" type="button">

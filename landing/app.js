@@ -1,6 +1,7 @@
 const form = document.querySelector('#check');
 const status = document.querySelector('#status');
 const results = document.querySelector('#results');
+const publicConfig = globalThis.SOURCELENS_CONFIG || {};
 function node(tag, text, parent) { const el = document.createElement(tag); el.textContent = text; parent.append(el); return el; }
 function sourceLink(parent, title, url) {
   try { if (new URL(url).protocol !== 'https:') return; } catch { return; }
@@ -51,9 +52,41 @@ form.addEventListener('submit', async event => {
     } else { payload = { claim: document.querySelector('#claim').value }; route = '/api/check'; }
     // Local preview only; deployed Firebase uses its same-origin Cloud Run rewrite.
     const base = ['localhost', '127.0.0.1'].includes(location.hostname) ? 'http://localhost:8080' : '';
-    const response = await fetch(base + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+    const headers = { 'Content-Type': 'application/json' };
+    if (publicConfig.authRequired) {
+      const token = await SourceLensAuth.token();
+      if (!token) throw new Error('Sign in to SourceLens first.');
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(base + route, { method: 'POST', headers, body: JSON.stringify(payload), signal: controller.signal });
     const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Research unavailable.');
     data.results.forEach(render); status.textContent = data.results.length ? 'Review the evidence and uncertainty below.' : 'No factual claims extracted.';
   } catch (error) { status.textContent = error.name === 'AbortError' ? 'Research timed out. Try a shorter claim.' : error.message; }
   finally { clearTimeout(timer); form.querySelector('button').disabled = false; }
 });
+
+if (publicConfig.authRequired) {
+  const account = document.createElement('section');
+  account.innerHTML = '<h2>Your SourceLens account</h2><p id="account-note" role="status"></p><form id="account-form"><label for="account-email">Email</label><input id="account-email" type="email" required autocomplete="email"><label for="account-password">Password</label><input id="account-password" type="password" required minlength="8" maxlength="128" autocomplete="current-password"><button>Sign in</button> <button type="button" id="account-create">Create account</button> <button type="button" id="account-reset">Reset password</button></form><p><button id="account-refresh" type="button">Refresh verified session</button> <button id="account-verify" type="button">Resend verification email</button> <button id="account-signout" type="button">Sign out</button> <button id="account-delete" type="button">Delete account</button></p>';
+  form.before(account);
+  const get = id => account.querySelector('#' + id);
+  const render = async () => {
+    const state = await SourceLensAuth.status();
+    get('account-note').textContent = state.signedIn ? `${state.email}: ${state.emailVerified ? 'signed in' : 'check your email to verify your account, then refresh your session'}` : 'Create an account or sign in to check claims.';
+    get('account-form').hidden = state.signedIn;
+    for (const id of ['account-refresh','account-verify','account-signout','account-delete']) get(id).hidden = !state.signedIn;
+  };
+  const run = async action => {
+    try { await action(); await render(); }
+    catch (error) { get('account-note').textContent = error.message; }
+    finally { get('account-password').value = ''; }
+  };
+  get('account-form').addEventListener('submit', event => { event.preventDefault(); run(() => SourceLensAuth.signIn(get('account-email').value.trim(), get('account-password').value)); });
+  get('account-create').onclick = () => { if (get('account-form').reportValidity()) run(() => SourceLensAuth.signUp(get('account-email').value.trim(), get('account-password').value)); };
+  get('account-refresh').onclick = () => run(() => SourceLensAuth.refresh());
+  get('account-verify').onclick = () => run(async () => { await SourceLensAuth.sendVerification(); });
+  get('account-signout').onclick = () => run(() => SourceLensAuth.signOut());
+  get('account-delete').onclick = () => { if (confirm('Delete your SourceLens account? This cannot be undone.')) run(() => SourceLensAuth.deleteAccount()); };
+  get('account-reset').onclick = () => run(() => SourceLensAuth.resetPassword(get('account-email').value.trim()));
+  render();
+}

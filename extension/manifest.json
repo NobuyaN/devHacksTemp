@@ -23,6 +23,7 @@
         "https://*/*"
       ],
       "js": [
+        "config.js",
         "content.js"
       ],
       "css": [
@@ -45,5 +46,6 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "minimum_chrome_version": "102"
 }

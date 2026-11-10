@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const code = readFileSync(new URL('../extension/content.js', import.meta.url), 'utf8');
 const paragraphs = '<article><p>Scientists report that electric vehicles always produce zero emissions.</p><p>Research shows that the Sun revolves around the Earth.</p><p>Experts report that this fictional drink cures every disease.</p></article>';
 const cited = status => ({ status, summary: 'Controlled fixture only', detail: 'Not live research', sources: [{ title: 'Fixture source', url: 'https://source.example/report' }], demo: false });
-function page({ enabled = true, result = cited('contradicted'), html = paragraphs, endpoint = 'http://127.0.0.1:8080' } = {}) {
+function page({ enabled = true, result = cited('contradicted'), html = paragraphs, endpoint = 'http://127.0.0.1:8080', config = null } = {}) {
   const dom = new JSDOM(html, { url: 'https://fixture.example/article', runScripts: 'outside-only' });
   const calls = [];
   const changes = [];
@@ -15,6 +15,7 @@ function page({ enabled = true, result = cited('contradicted'), html = paragraph
   const { window } = dom;
   const timer = window.setTimeout.bind(window);
   window.setTimeout = (fn, ms, ...args) => timer(fn, Math.min(ms, 5), ...args);
+  if (config) window.SOURCELENS_CONFIG = config;
   window.chrome = {
     storage: { local: { get: async () => ({ apiUrl: endpoint, autoScanSites: enabled ? { 'https://fixture.example': true } : {} }) }, onChanged: { addListener: fn => changes.push(fn) } },
     runtime: { onMessage: { addListener: fn => messages.push(fn) }, sendMessage: async message => { calls.push(message); return structuredClone(result); } }
@@ -85,4 +86,31 @@ test('manual results disclose zero inspection and per-source blocking reasons', 
   assert.match(text, /Article-level provenance could not be checked/);
   assert.match(text, /robots policy disallows/);
   assert.match(text, /0 confirmed distinct evidence origins/);
+});
+
+test('public Auto Scan uses the packaged endpoint without per-profile manual settings', async t => {
+  const p = page({ endpoint: '', config: { authRequired: true, apiOrigin: 'https://fixture-project.web.app' } }); t.after(() => p.window.close());
+  await until(() => p.calls.length === 2);
+  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight.is-contradicted').length, 2);
+});
+test('public signed-out Auto Scan gives sign-in instructions instead of clean-page claims', async t => {
+  const p = page({ endpoint: '', config: { authRequired: true, apiOrigin: 'https://fixture-project.web.app' }, result: { error: 'Sign in first', code: 'AUTH_REQUIRED' } }); t.after(() => p.window.close());
+  await until(() => /Sign in and verify/.test(p.document.querySelector('#mk-toast-message').textContent));
+  assert.equal(p.document.querySelectorAll('.mikata-claim-highlight').length, 0);
+});
+
+test('webpage scripts cannot synthesize a paid highlight or retry click', async t => {
+  const p = page({ enabled: false }); t.after(() => p.window.close());
+  p.window.getSelection = () => ({ isCollapsed: false, rangeCount: 1, anchorNode: p.document.querySelector('article p').firstChild,
+    toString: () => 'A controlled highlight fixture claim.', getRangeAt: () => ({ getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 200, height: 20 }) }) });
+  p.document.body.dispatchEvent(new p.window.MouseEvent('mouseup', { bubbles: true }));
+  await until(() => p.document.querySelector('#mk-bubble').classList.contains('is-visible'));
+  p.document.querySelector('#mk-bubble').click();
+  await delay(10);
+  assert.equal(p.calls.length, 0);
+  p.open('A legitimate privileged popup message fixture.');
+  await until(() => p.calls.length === 1 && !p.document.querySelector('#mk-retry').disabled);
+  p.document.querySelector('#mk-retry').click();
+  await delay(10);
+  assert.equal(p.calls.length, 1);
 });

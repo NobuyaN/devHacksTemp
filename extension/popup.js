@@ -5,6 +5,7 @@
 // See docs/TEAM_TASKS.md and docs/SECURITY_AND_CREDITS.md before adding features.
 
 const $ = id => document.getElementById(id);
+const publicConfig = globalThis.SOURCELENS_CONFIG || {};
 const sample = "Electric vehicles produce zero emissions.";
 
 function setMessage(message) { $("message").textContent = message || ""; }
@@ -29,7 +30,7 @@ $("paste-btn").addEventListener("click", () => {
 });
 $("sample-btn").addEventListener("click", () => {
   $("claim-input").value = sample;
-  setMessage("Sample ready! Click “Check this claim” to see the design preview.");
+  setMessage($("mode-pill").classList.contains("live") ? "Sample ready. Click Check this claim to run a live check." : "Sample ready! Click Check this claim to see the design preview.");
 });
 
 function validUrl(value) {
@@ -43,7 +44,7 @@ function validUrl(value) {
 
 function updateMode(url) {
   const pill = $("mode-pill");
-  pill.textContent = url ? "✿ Connected to your backend" : "✦ Design preview mode";
+  pill.textContent = publicConfig.authRequired ? "✿ Shared SourceLens service" : url ? "✿ Connected to your backend" : "✦ Design preview mode";
   pill.classList.toggle("live", Boolean(url));
 }
 
@@ -61,8 +62,10 @@ $("reset-btn").addEventListener("click", async () => {
   setMessage("Back in design preview mode.");
 });
 chrome.storage.local.get("apiUrl").then(({ apiUrl }) => {
-  if (apiUrl) $("api-url").value = apiUrl;
-  updateMode(apiUrl);
+  const endpoint = publicConfig.authRequired ? publicConfig.apiOrigin : apiUrl || publicConfig.apiOrigin;
+  if (endpoint) $("api-url").value = endpoint;
+  updateMode(endpoint);
+  if (publicConfig.authRequired) $("settings").hidden = true;
 });
 
 
@@ -102,3 +105,53 @@ $("auto-toggle").addEventListener("change", async event => {
   } finally { toggle.disabled = false; }
 });
 initializeAutoScan();
+
+async function accountAction(type) {
+  const request = { type };
+  const credentials = ["MIKATA_AUTH_SIGN_IN", "MIKATA_AUTH_SIGN_UP"].includes(type);
+  if (credentials || type === "MIKATA_AUTH_RESET") request.email = $("account-email").value.trim();
+  if (credentials) request.password = $("account-password").value;
+  const buttons = $("account-panel").querySelectorAll("button");
+  buttons.forEach(button => { button.disabled = true; });
+  try {
+    const response = await chrome.runtime.sendMessage(request);
+    if (!response || response.error) throw new Error(response?.error || "Sign-in service is unavailable.");
+    if (typeof response.signedIn === "boolean") renderAccount(response);
+    return response;
+  } finally {
+    if (credentials) $("account-password").value = "";
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+
+function renderAccount(state) {
+  $("account-form").hidden = state.signedIn;
+  $("account-session").hidden = !state.signedIn;
+  $("account-refresh").hidden = state.emailVerified;
+  $("account-verify").hidden = state.emailVerified;
+  $("account-status").textContent = state.signedIn
+    ? (state.emailVerified ? `Signed in as ${state.email}. Refresh the article to start checking.` : `Verify the email sent to ${state.email}, then click Refresh.`)
+    : "Sign in or create a SourceLens account to check claims.";
+}
+if (publicConfig.authRequired) {
+  $("account-panel").hidden = false;
+  $("account-privacy").href = publicConfig.apiOrigin + "/privacy.html";
+  $("auto-privacy-note").textContent = "Up to 2 selected claims per page load use your check allowance. Auto Scan is off by default; underlines are not a verdict on the whole page.";
+  accountAction("MIKATA_AUTH_STATUS").catch(error => setMessage(error.message));
+}
+$("account-form").addEventListener("submit", event => { event.preventDefault(); accountAction("MIKATA_AUTH_SIGN_IN").catch(error => setMessage(error.message)); });
+$("account-create").addEventListener("click", () => {
+  if (!$("account-form").reportValidity()) return;
+  accountAction("MIKATA_AUTH_SIGN_UP").then(state => { if (state.verificationSent === false) setMessage("Account created. Use Resend verification email to try sending your verification link."); }).catch(error => setMessage(error.message));
+});
+for (const [id, action] of [["account-refresh", "REFRESH"], ["account-signout", "SIGN_OUT"], ["account-verify", "VERIFY"]]) {
+  $(id).addEventListener("click", () => accountAction(`MIKATA_AUTH_${action}`).then(result => { if (result.sent) setMessage("Verification email sent."); }).catch(error => setMessage(error.message)));
+}
+
+$("account-reset").addEventListener("click", () => {
+  if (!$("account-email").reportValidity() || !$("account-email").value.trim()) return setMessage("Enter your email first.");
+  accountAction("MIKATA_AUTH_RESET").then(() => setMessage("If this account exists, a password reset email will be sent.")).catch(error => setMessage(error.message));
+});
+$("account-delete").addEventListener("click", () => {
+  if (confirm("Delete your SourceLens account? This cannot be undone. Usage counters expire separately after their retention period.")) accountAction("MIKATA_AUTH_DELETE").catch(error => setMessage(error.message));
+});

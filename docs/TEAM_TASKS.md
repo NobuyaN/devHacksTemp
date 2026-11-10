@@ -37,3 +37,7 @@ VS Code → Search → `TODO(` will show handoff notes across the codebase.
 4. Keep new features off by default if they send user text to cloud services. Explicit user selections are also sensitive.
 5. Use short, descriptive branches: `feat/auto-scan-quality`, `design/logo`, `fix/backend-timeout`, `docs/security`.
 6. Any result with no evidence should be labeled `insufficient_evidence`, not `false`.
+
+## SourceLens public-beta update
+
+The backend owner has prepared a self-configuring extension release, Firebase end-user authentication, verified-email enforcement, durable named-Firestore quotas and release/deployment documentation. Local development remains available; public provisioning is pending owner approval. The resource/permission/cost proposal is in `deployment/PUBLIC_BETA.md`; no public deployment or Chrome Web Store publication is claimed. Controlled tests cover profile-isolated sessions and quota/model gates. The original packaged-starter status above is historical; source independence remains a prototype with explicit unresolved results.

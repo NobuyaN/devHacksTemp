@@ -84,8 +84,8 @@
   function closePanel() { panel.classList.remove("is-open"); }
   $("mk-close").addEventListener("click", closePanel);
   bubble.addEventListener("mousedown", event => event.preventDefault());
-  bubble.addEventListener("click", () => openClaim(savedSelection));
-  $("mk-retry").addEventListener("click", () => openClaim(activeClaim));
+  bubble.addEventListener("click", event => { if (event.isTrusted) openClaim(savedSelection); });
+  $("mk-retry").addEventListener("click", event => { if (event.isTrusted) openClaim(activeClaim); });
   $("mk-toast-close").addEventListener("click", () => { $("mk-scan-toast").hidden = true; });
 
   const metadata = {
@@ -184,17 +184,19 @@
 
   function showCheckResult(result) {
     if (!result || result.error) {
-      const reachedBackend = result?.code && !["NETWORK_ERROR", "REQUEST_TIMEOUT"].includes(result.code);
-      setStatus("error", result?.error || "Please refresh this page and try again.", reachedBackend
+      const signInNeeded = ["AUTH_REQUIRED", "INVALID_SESSION", "EMAIL_NOT_VERIFIED"].includes(result?.code);
+      const reachedBackend = result?.backend_reached !== false && result?.code && !["NETWORK_ERROR", "REQUEST_TIMEOUT"].includes(result.code);
+      setStatus("error", result?.error || "Please refresh this page and try again.", signInNeeded ? "Open the extension popup to sign in or refresh your verified session." : reachedBackend
         ? "The extension reached your backend, but the research could not finish."
         : "Check that your backend is running and its saved endpoint is correct.");
-      $("mk-mode").textContent = reachedBackend ? "Research unavailable" : "Connection issue";
+      $("mk-mode").textContent = signInNeeded ? "Sign in required" : reachedBackend ? "Research unavailable" : "Connection issue";
       $("mk-no-sources").textContent = "No evidence was retrieved.";
       return;
     }
     $("mk-mode").textContent = result.demo ? "✦ Design preview · not verified" : "✿ Live AI-assisted assessment";
     $("mk-mode").classList.toggle("is-live", !result.demo);
     if (!result.demo && Number.isFinite(result.processing_ms)) $("mk-mode").textContent += ` · ${(result.processing_ms / 1000).toFixed(1)}s`;
+    if (Number.isFinite(result.quota?.remaining)) $("mk-mode").textContent += ` · ${result.quota.remaining} checks left today`;
     setStatus(result.status, result.summary, result.detail);
     renderSources(result.sources);
     renderProvenance(result.results);
@@ -345,6 +347,8 @@
     const record = { element: marker, claim: candidate.text, result: null };
     const open = event => {
       event.stopPropagation();
+      // A page script may open an existing result, but cannot synthesize a paid check.
+      if (!event.isTrusted && !record.result) return;
       openClaim(record.claim, record.result);
     };
     marker.addEventListener("click", open);
@@ -366,8 +370,9 @@
       return;
     }
     const { apiUrl = "" } = await chrome.storage.local.get("apiUrl");
+    const sharedService = Boolean(globalThis.SOURCELENS_CONFIG?.authRequired && globalThis.SOURCELENS_CONFIG.apiOrigin);
     if (!scanEnabled || generation !== scanGeneration) return;
-    if (!apiUrl) {
+    if (!apiUrl && !sharedService) {
       showScanToast(`✦ ${records.length} claim${records.length > 1 ? "s" : ""} worth exploring · preview only`);
       return; // No API calls, and importantly no fake-news warning without evidence.
     }
@@ -381,6 +386,7 @@
     let failed = 0;
     let withoutEvidence = 0;
     let checked = 0;
+    let signInRequired = false;
     for (const record of records) {
       if (!scanEnabled || generation !== scanGeneration || autoRequestsUsed >= MAX_AUTO_CHECKS) break;
       autoRequestsUsed++;
@@ -394,6 +400,7 @@
       record.result = result;
       // IMPORTANT: no warning for unverified preview content, no-source checks or errors.
       const evidence = !result?.demo && !result?.error && Array.isArray(result?.sources) && result.sources.length > 0;
+      if (["AUTH_REQUIRED", "INVALID_SESSION", "EMAIL_NOT_VERIFIED"].includes(result?.code)) signInRequired = true;
       if (result?.error || !result) failed++;
       else if (!evidence) withoutEvidence++;
       else checked++;
@@ -409,6 +416,10 @@
       }
     }
     if (!scanEnabled || generation !== scanGeneration) return;
+    if (signInRequired) {
+      showScanToast("Sign in and verify your email in the Mikata popup, then refresh this page to use Auto Scan.");
+      return;
+    }
     const outcome = warnings ? `${warnings} source-backed warning${warnings > 1 ? "s" : ""}; tap an underline.`
       : checked ? `${checked} selected claim${checked === 1 ? "" : "s"} checked with citations; no warnings.`
       : "No completed cited checks.";

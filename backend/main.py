@@ -128,6 +128,15 @@ def create_app(engine_factory=ResearchEngine):
         except APIError as exc:
             # Status-only logging avoids exposing prompts, tokens or provider response bodies.
             app.logger.warning('Vertex request failed: status=%s', exc.code)
+            if exc.code == 429 or exc.code in (500, 502, 503, 504):
+                code = 'PROVIDER_RATE_LIMITED' if exc.code == 429 else 'PROVIDER_UNAVAILABLE'
+                message = ('Google is busy or this project has reached its current request limit. Try again shortly.'
+                           if exc.code == 429 else 'Google research is temporarily unavailable. Try again shortly.')
+                response, status = error(message, code, 503)
+                response.headers['Retry-After'] = '30'
+                return response, status
+            if exc.code == 400:
+                return error('Google rejected this research request. Try another short factual sentence; if it repeats, report error 400.', 'RESEARCH_REQUEST_REJECTED', 503)
             if exc.code == 404:
                 return error('The configured Gemini model is unavailable. Check GEMINI_MODEL and your project access, then restart the backend.', 'MODEL_UNAVAILABLE', 503)
             if exc.code in (401, 403):

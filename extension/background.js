@@ -87,7 +87,11 @@ async function requestClaim(base, claim, message) {
       signal: controller.signal
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || `Backend returned HTTP ${response.status}`);
+    if (!response.ok) return {
+      error: data.error || `Backend returned HTTP ${response.status}`,
+      code: typeof data.code === "string" ? data.code : "BACKEND_ERROR",
+      retryable: ["PROVIDER_RATE_LIMITED", "PROVIDER_UNAVAILABLE", "BUSY", "RATE_LIMITED"].includes(data.code)
+    };
     if (!ALLOWED_STATUSES.has(data.status) || typeof data.summary !== "string") {
       throw new Error("The backend returned an unexpected result.");
     }
@@ -104,7 +108,10 @@ async function requestClaim(base, claim, message) {
       demo: false
     };
   } catch (error) {
-    return { error: error.name === "AbortError" ? "The check took too long. Please try again." : `Couldn't connect to your backend. ${error.message}` };
+    return {
+      error: error.name === "AbortError" ? "The check took too long. Please try again." : `Couldn't connect to your backend. ${error.message}`,
+      code: error.name === "AbortError" ? "REQUEST_TIMEOUT" : "NETWORK_ERROR"
+    };
   } finally { clearTimeout(timer); }
 }
 

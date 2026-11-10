@@ -171,8 +171,11 @@
 
   function showCheckResult(result) {
     if (!result || result.error) {
-      setStatus("error", result?.error || "Please refresh this page and try again.", "Check your Cloud Run connection in Mikata's toolbar popup.");
-      $("mk-mode").textContent = "Connection issue";
+      const reachedBackend = result?.code && !["NETWORK_ERROR", "REQUEST_TIMEOUT"].includes(result.code);
+      setStatus("error", result?.error || "Please refresh this page and try again.", reachedBackend
+        ? "The extension reached your backend, but the research could not finish."
+        : "Check that your backend is running and its saved endpoint is correct.");
+      $("mk-mode").textContent = reachedBackend ? "Research unavailable" : "Connection issue";
       $("mk-no-sources").textContent = "No evidence was retrieved.";
       return;
     }

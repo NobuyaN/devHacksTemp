@@ -160,6 +160,56 @@ class ResearchTests(unittest.TestCase):
         engine.extract(text='A fixture sentence.')
         self.assertIsNone(engine.client.models.generate_content.call_args.kwargs['config'].thinking_config)
 
+    def test_transient_provider_error_retries_once_then_succeeds(self):
+        from google.genai.errors import ClientError
+        engine = self.engine(None)
+        engine.client.models.generate_content.side_effect = [ClientError(429, {'error': {'message':'Fixture busy'}}), NS(text='{"claims":[]}')]
+        with patch('research.time.sleep') as sleep, patch('research.random.uniform', return_value=0.25):
+            self.assertEqual(engine.extract(text='Fixture claim text'), [])
+        sleep.assert_called_once_with(1.25)
+        self.assertEqual(engine.client.models.generate_content.call_count, 2)
+        for call in engine.client.models.generate_content.call_args_list:
+            self.assertLessEqual(call.kwargs['config'].http_options.timeout, 10000)
+            self.assertEqual(call.kwargs['config'].http_options.retry_options.attempts, 1)
+
+    def test_permanent_provider_error_is_not_retried(self):
+        from google.genai.errors import ClientError
+        engine = self.engine(None)
+        engine.client.models.generate_content.side_effect = ClientError(404, {'error': {'message':'Fixture unavailable model'}})
+        with patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture claim text')
+        sleep.assert_not_called()
+        self.assertEqual(engine.client.models.generate_content.call_count, 1)
+
+    def test_persistent_capacity_error_stops_after_two_attempts(self):
+        from google.genai.errors import ClientError
+        engine = self.engine(None)
+        engine.client.models.generate_content.side_effect = ClientError(429, {'error': {'message':'Fixture busy'}})
+        with patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture claim text')
+        self.assertEqual(engine.client.models.generate_content.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_retry_after_exceeding_stage_budget_is_not_ignored(self):
+        from google.genai.errors import ClientError
+        engine = self.engine(None)
+        failure = ClientError(429, {'error': {'message':'Fixture busy'}})
+        failure.response = NS(headers={'Retry-After':'60'})
+        engine.client.models.generate_content.side_effect = failure
+        with patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture claim text')
+        sleep.assert_not_called()
+        self.assertEqual(engine.client.models.generate_content.call_count, 1)
+
+    def test_retry_does_not_start_when_stage_budget_is_exhausted(self):
+        from google.genai.errors import ClientError
+        engine = self.engine(None)
+        engine.client.models.generate_content.side_effect = ClientError(503, {'error': {'message':'Fixture busy'}})
+        with patch('research.time.monotonic', side_effect=[0,0,9.8]), patch('research.time.sleep') as sleep, self.assertRaises(ClientError):
+            engine.extract(text='Fixture claim text')
+        sleep.assert_not_called()
+        self.assertEqual(engine.client.models.generate_content.call_count, 1)
+
     def test_opinion_skips_search(self):
         engine = self.engine(None)
         self.assertEqual(engine.check([claim(checkable=False)])[0]['assessment'], 'NOT_FACT_CHECKABLE')
@@ -215,6 +265,17 @@ class APITests(unittest.TestCase):
         response = self.client.post('/check', json={'claim':'Fixture claim text'})
         self.assertEqual(response.json['code'], 'CLOUD_AUTH_ERROR')
         self.assertNotIn('private token details', response.text)
+
+    def test_provider_failures_return_distinct_sanitized_errors(self):
+        from google.genai.errors import ClientError
+        for provider_status, code in [(429,'PROVIDER_RATE_LIMITED'), (503,'PROVIDER_UNAVAILABLE'), (400,'RESEARCH_REQUEST_REJECTED')]:
+            self.engine.extract.side_effect = ClientError(provider_status, {'error':{'message':'private provider text'}})
+            response = self.client.post('/check', json={'claim':'Fixture claim text'})
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.json['code'], code)
+            self.assertNotIn('private provider text', response.text)
+            if provider_status != 400:
+                self.assertIn('Retry-After', response.headers)
 
     def test_rate_limit(self):
         for _ in range(6): self.client.post('/check', json={'claim':'Fixture claim text'})

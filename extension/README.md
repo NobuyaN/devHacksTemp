@@ -31,3 +31,9 @@ Keep Auto Scan off unless you deliberately want per-site automatic requests. It 
 Claim extraction uses a lower-latency reasoning setting, backend model clients are reused, and the optional ambiguity-model pass is skipped when too few articles can be inspected. Grounded research and deterministic verification remain enabled. Simultaneous duplicate checks share a request; later checks perform fresh research. No persistent result cache was added. The displayed duration measures backend processing time; search and network latency vary.
 
 Automated fixture and broker tests do not verify installation in a real Chrome profile. Run an interactive selection/popup/Auto Scan check after loading the extension.
+
+## Research unavailable versus connection issue
+
+**Research unavailable** means the extension reached the backend, but Google processing, credentials, capacity or request validation prevented a completed result. Follow the specific message. Temporary provider failures get one bounded automatic retry; persistent provider issues may still require waiting or a cloud administrator's quota/IAM review.
+
+**Connection issue** means the request could not reach the saved endpoint or exceeded its browser timeout. Confirm that the local backend is running and the saved URL is `http://127.0.0.1:8080`. After extension code changes, reload its card on `chrome://extensions` and refresh the article page.
